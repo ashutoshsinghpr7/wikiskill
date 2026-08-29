@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wikiskill-hermes"
+version = "0.1.0"
+description = "WikiSkill (arXiv:2608.27454) for Hermes Agent — co-evolve skills with a persistent wiki"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[project.scripts]
+wikiskill = "wikiskill.cli:main"
+
+[tool.setuptools]
+packages = ["wikiskill"]
