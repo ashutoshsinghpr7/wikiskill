@@ -201,9 +201,9 @@ def code_tasks(rng: random.Random) -> list[dict]:
     out.append({
         "id": "code-primes", "split": "train",
         "title": "Sum of primes not exceeding N",
-        "prompt": (f"`input.txt` contains a single integer N. Write `solve.py` that "
-                   f"reads N and PRINTS the sum of all primes <= N (a single number, "
-                   f"no extra output). Verify by running `python3 solve.py`."),
+        "prompt": ("`input.txt` contains a single integer N. Write `solve.py` that "
+                   "reads N and PRINTS the sum of all primes <= N (a single number, "
+                   "no extra output). Verify by running `python3 solve.py`."),
         "sandbox": {"input.txt": str(n)},
         "grader": {"type": "code_stdout", "script": "solve.py", "expected": expected},
     })
@@ -412,13 +412,13 @@ def trap_tasks(rng: random.Random) -> list[dict]:
     out.append({
         "id": "debug-boundary", "split": "val",
         "title": "Fix the two bugs in solve.py",
-        "prompt": (f"`input.txt` contains two integers `a b`. `solve.py` is SUPPOSED "
-                   f"to print the count of integers i with a <= i <= b that are "
-                   f"divisible by 3, but it is WRONG. DEBUG it thoroughly: run it, "
-                   f"see the wrong output, find ALL the bugs (there may be MORE "
-                   f"THAN ONE), fix each root cause, and verify `python3 solve.py` "
-                   f"prints the correct single number. Do not change the program's "
-                   f"behavior other than fixing bugs."),
+        "prompt": ("`input.txt` contains two integers `a b`. `solve.py` is SUPPOSED "
+                   "to print the count of integers i with a <= i <= b that are "
+                   "divisible by 3, but it is WRONG. DEBUG it thoroughly: run it, "
+                   "see the wrong output, find ALL the bugs (there may be MORE "
+                   "THAN ONE), fix each root cause, and verify `python3 solve.py` "
+                   "prints the correct single number. Do not change the program's "
+                   "behavior other than fixing bugs."),
         "sandbox": {"input.txt": f"{a} {b}", "solve.py": buggy},
         "grader": {"type": "code_stdout", "script": "solve.py", "expected": expected},
     })

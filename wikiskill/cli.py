@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 
-from . import agents, bench, gating, harness, prompts, tasks as tasks_mod, traces, wiki
+from . import agents, bench, gating, harness, tasks as tasks_mod, traces
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_WS_ROOT = os.path.join(REPO_ROOT, "workspaces")
@@ -31,7 +30,7 @@ def cmd_init(args) -> int:
     print(f"workspace initialized: {ws}")
     print(f"  tasks: {len(tasks)} ({sum(1 for t in tasks if t['split']=='train')} train, "
           f"{sum(1 for t in tasks if t['split']=='val')} val)")
-    print(f"  next: `wikiskill status` or `wikiskill evolve --iters 3`")
+    print("  next: `wikiskill status` or `wikiskill evolve --iters 3`")
     return 0
 
 
@@ -122,8 +121,6 @@ def cmd_maintain(args) -> int:
 
 def cmd_propose(args) -> int:
     ws = resolve_ws(args.domain, args.ws)
-    results = [traces.load_trace(ws, args.iter, "train", t["task_id"])
-               for t in traces.list_traces(ws, it=args.iter, split="train")]
     tr = [{"id": t["task_id"], "split": "train", "title": t.get("title", ""),
            "score": t.get("score")} for t in traces.list_traces(ws, it=args.iter, split="train")]
     proposal, res = harness.propose_step(ws, args.iter, tr, dry_run=args.dry_run)

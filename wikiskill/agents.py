@@ -40,7 +40,8 @@ def hermes_env(ws: str) -> dict:
 
 def bootstrap_profile(ws: str, real: str | None = None) -> str:
     """Create the isolated profile: copy secrets/config, empty sessions+memory,
-    stop bundled-skill seeding so the skill set is exactly what we symlink."""
+    opt out of bundled-skill seeding (so the profile's skills/ contains EXACTLY
+    the active skill set — required for faithful gating)."""
     real = real or real_home()
     prof = profile_dir(ws)
     for d in ("sessions", "skills", "memories", "logs"):
@@ -50,9 +51,11 @@ def bootstrap_profile(ws: str, real: str | None = None) -> str:
         dst = os.path.join(prof, f)
         if os.path.exists(src) and not os.path.exists(dst):
             shutil.copy2(src, dst)
-    # Isolated profile must not auto-seed the bundled skill catalog.
-    subprocess.run(["hermes", "skills", "opt-out"],
-                   env=hermes_env(ws), capture_output=True, text=True, check=False)
+    # Stop bundled-skill seeding in the isolated profile. Skip silently when the
+    # hermes binary is absent (e.g. CI runs of the test suite).
+    if shutil.which("hermes"):
+        subprocess.run(["hermes", "skills", "opt-out"], env=hermes_env(ws),
+                       capture_output=True, text=True, check=False)
     return prof
 
 

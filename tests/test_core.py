@@ -1,6 +1,5 @@
 """Graders + task registry + trace store unit tests."""
 
-import json
 import os
 import pytest
 

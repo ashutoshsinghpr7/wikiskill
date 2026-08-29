@@ -2,11 +2,10 @@
 
 import json
 import os
-import subprocess
 
 import pytest
 
-from wikiskill import agents, bench, gating, harness, prompts, tasks as tasks_mod, wiki
+from wikiskill import agents, bench, gating, harness, tasks as tasks_mod
 
 
 def build_ws(tmp_path, seed=7):

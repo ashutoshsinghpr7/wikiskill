@@ -5,12 +5,35 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "wikiskill-hermes"
 version = "0.1.0"
-description = "WikiSkill (arXiv:2608.27454) for Hermes Agent — co-evolve skills with a persistent wiki"
+description = "WikiSkill (arXiv:2608.27454) for Hermes Agent — self-evolving agent skills via a persistent knowledge wiki"
+readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
+keywords = [
+    "agents", "skills", "skill-evolution", "wiki", "llm", "hermes",
+    "self-improving", "agent-experience", "persistent-knowledge",
+    "arxiv-2608.27454",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = []
 
 [project.scripts]
 wikiskill = "wikiskill.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ashutoshsinghpr7/wikiskill-hermes"
+Repository = "https://github.com/ashutoshsinghpr7/wikiskill-hermes"
+arXiv = "https://arxiv.org/abs/2608.27454"
 
 [tool.setuptools]
 packages = ["wikiskill"]

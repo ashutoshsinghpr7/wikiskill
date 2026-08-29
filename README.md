@@ -1,78 +1,145 @@
-# WikiSkill for Hermes
+# 🧠 WikiSkill for Hermes
 
-A faithful implementation of **arXiv:2608.27454 — WikiSkill: Compiling Agent
-Experience into Persistent Knowledge for Skill Evolution** (Google Research),
-built natively on Hermes Agent.
+**Compile agent experience into a persistent wiki — and let skills evolve themselves.**
 
-WikiSkill co-evolves agent skills with a **persistent wiki**: raw execution
-traces are consolidated into structured knowledge, which drives skill
-proposals that are gated on a validation split — accepted skills are kept,
-rejected ones are rolled back, and the wiki always persists.
+A faithful, production-minded implementation of **[WikiSkill: Compiling Agent Experience into Persistent Knowledge for Skill Evolution](https://arxiv.org/abs/2608.27454)** (arXiv:2608.27454, Google Research), built natively on **[Hermes Agent](https://hermes-agent.nousresearch.com/docs)** — your own agent becomes both the *student* and the *teacher*.
 
-## Paper → Hermes mapping
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/ashutoshsinghpr7/wikiskill-hermes/ci.yml?label=CI)](https://github.com/ashutoshsinghpr7/wikiskill-hermes/actions)
+[![arXiv](https://img.shields.io/badge/arXiv-2608.27454-red.svg)](https://arxiv.org/abs/2608.27454)
 
-| Paper component | Hermes equivalent |
+---
+
+## What this is
+
+Agents fail. They also *learn* — but the lessons usually die with the session. WikiSkill fixes that by keeping a **persistent knowledge wiki** alongside the skill set, and running a closed evolution loop:
+
+1. The agent runs **training tasks** with its current skills → raw execution traces
+2. A **Wiki Maintainer** agent distills the traces into pattern pages (root causes, fixes)
+3. A **Skill Proposer** agent reads the wiki + traces and proposes one skill change (create or patch)
+4. **Gating**: the change is validated on held-out tasks — **strictly better** than the best score so far → kept; otherwise rolled back. **The wiki is never rolled back.**
+
+Over iterations, knowledge compounds in the wiki while only *proven* improvements touch the skills.
+
+```
+                ┌──────────────────────────────────────────────────────┐
+                │              EVOLUTION LOOP (Algorithm 1)            │
+                │                                                      │
+   tasks ─────► │  Inference Agent ──► raw/traces/ (immutable)         │
+                │        │                                            │
+                │        ▼                                            │
+                │  Wiki Maintainer ──► wiki/patterns/, index, log     │
+                │        │                                            │
+                │        ▼                                            │
+                │  Skill Proposer ──► proposal (create/patch skill)   │
+                │        │                                            │
+                │        ▼                                            │
+                │  GATE: val score > R_best? ──yes──► keep, R_best=R  │
+                │        │ no                                         │
+                │        ▼                                            │
+                │  rollback skills; wiki retained forever             │
+                └──────────────────────────────────────────────────────┘
+```
+
+## Why Hermes?
+
+This is not a toy simulator. Every component is a **real Hermes agent turn**:
+
+| WikiSkill (paper) | This repo |
 |---|---|
-| Inference Agent | `hermes chat --query-file <p> -Q --oneshot` in an isolated profile |
-| Raw Layer (`raw/`) | copied session JSONLs under `raw/traces/iter-NN/` |
-| Wiki Layer (`wiki/`) | `wiki/{index.md, log.md, skill-impact.md, patterns/}` (git-tracked) |
-| Skill Layer (`skills/`) | git-managed `skills/active/` (SKILL.md dirs) |
-| Wiki Maintainer | agent turn with the `wikiskill-maintainer` skill (paper App. E.2) |
-| Skill Proposer (ReAct) | agent turn with the `wikiskill-proposer` skill (paper App. E.3) |
-| Gating & rollback | strict `R_val > R_best`; `git reset --hard` on reject; wiki never rolled back |
-| Isolated skill sets | dedicated `HERMES_HOME` per workspace; `skills/` is symlinked per phase |
+| Inference Agent | `hermes chat --oneshot` in an **isolated `HERMES_HOME` profile** |
+| Raw Layer | Full session JSONL transcripts, exported via `hermes sessions export` |
+| Wiki Layer | `wiki/` — git-tracked, maintained by a real agent, never rolled back |
+| Skill Layer | Real `SKILL.md` packages (frontmatter + instructions), git-managed |
+| Wiki Maintainer | Agent turn with the paper's **Appendix E.2 prompt** (extracted verbatim) |
+| Skill Proposer | Agent turn with the paper's **Appendix E.3 ReAct prompt** |
+| Gating | Strict `R_val > R_best`; `git reset --hard` on reject |
 
-## Quickstart
+**Why the isolated profile matters:** gating is only meaningful if the agent sees *exactly* the candidate skill set. Each evolution workspace gets its own `HERMES_HOME` (bundled skills opted out, empty memory, skills symlinked per stage) — your real profile is never touched.
+
+## Quickstart (60 seconds)
 
 ```bash
-pip install -e .            # installs the `wikiskill` CLI
-wikiskill init demo         # workspace + 22-task auto-graded demo bench (15 train / 7 val)
+pip install -e .          # installs the `wikiskill` CLI
+wikiskill init demo       # workspace + 22-task auto-graded bench (13 train / 9 val)
 wikiskill status
-wikiskill evolve --iters 3  # full Algorithm 1 loop (real Hermes agent runs)
+wikiskill evolve --iters 3   # full Algorithm 1 loop with your default model
 ```
 
-Each evolution iteration costs ~(train tasks + val tasks) inference runs plus
-one maintainer and one proposer turn. With small task sets and a cheap model
-(e.g. deepseek) a 3-iteration demo runs in well under an hour.
-
-## Workspace layout
+That's it. Each evolution workspace lives at `workspaces/<domain>/`:
 
 ```
-workspaces/<domain>/
-├── tasks.json                 # task registry (prompt, sandbox files, grader)
-├── bench/tasks/<id>/          # per-task sandboxes (agent workdirs)
-├── raw/traces/iter-NN/        # immutable execution traces (Raw Layer)
-│   ├── train/<id>.jsonl       #   full session transcript
-│   └── train/<id>.meta.json   #   score + run metadata
-├── wiki/                      # persistent knowledge base (Wiki Layer)
-│   ├── index.md  log.md  skill-impact.md  patterns/
-├── skills/
-│   ├── active/                # the evolving skill set (git repo; S0 = ∅)
-│   └── framework/             # maintainer/proposer skills (never gated)
-├── runs/                      # queries, stdout, proposals, state.json
-└── .hermes-home/              # isolated profile (HERMES_HOME per workspace)
+workspaces/demo/
+├── raw/traces/iter-01/{train,val}/<task>.jsonl   # immutable execution traces
+├── wiki/                                          # persistent knowledge (never rolled back)
+│   ├── index.md  ·  log.md  ·  skill-impact.md  ·  patterns/*.md
+├── skills/active/                                 # git-managed evolving skill set (S₀ = ∅)
+├── skills/framework/                              # maintainer + proposer agent skills
+├── bench/tasks/<id>/                              # task sandboxes (inputs + grader)
+└── runs/                                          # per-run stdout, proposals, state
 ```
 
-## Algorithm (paper Algorithm 1)
+## CLI
 
+| Command | What it does |
+|---|---|
+| `wikiskill init <domain>` | Create workspace + demo bench |
+| `wikiskill bench --reset` | Regenerate tasks (deterministic, seed=42) |
+| `wikiskill status` | Workspace state: scores, skills, wiki, history |
+| `wikiskill evolve --iters N [--model M] [--max-turns N] [--no-early-stop]` | The full loop |
+| `wikiskill run-task <id>` | Single inference rollout (debug) |
+| `wikiskill maintain` / `wikiskill propose` | Run those agent turns manually |
+
+## Bring your own tasks
+
+Tasks are plain JSON (`tasks.json`); anything auto-gradable works:
+
+```json
+{
+  "id": "spec-format1-1", "split": "train",
+  "title": "Format products according to spec",
+  "prompt": "Read spec.md and products.json...",
+  "sandbox": {"spec.md": "...", "products.json": "..."},
+  "grader": {"type": "exact", "file": "output.txt", "expected": "alpha|35|active\n..."}
+}
 ```
-baseline: R_best ← R(val, S0 = ∅)
-for k = 1..K:
-    if R_best == 1.0: break
-    train rollouts with S_{k-1}                    → raw/traces/
-    sample ≤5 failing + ≤3 passing traces (stratified)
-    wiki maintenance: consolidate traces into wiki  (never rolled back)
-    skill proposal: explore wiki + traces → proposal JSON
-    if no_action: log, continue
-    apply proposal → S'_k ; gate on validation split
-    if R_val > R_best: accept, commit              (S_k ← S'_k, R_best ← R_val)
-    else: roll back skills only; wiki retained
-    append outcome + full proposal to skill-impact.md
-```
 
-## Adding your own task domain
+Graders: `exact`, `contains`, `json_field`, `code_stdout` (runs the produced script). Missing deliverables score **0**, never crash.
 
-`tasks.json` is just a list of `{id, split, prompt, sandbox, grader}`. Graders:
-`exact`, `contains`, `json_field`, `code_stdout` (see `wikiskill/scoring.py`).
-Your real recurring workflows can be plugged in as a task set; for honest
-gating, prefer auto-gradable tasks (file/answer-based deliverables).
+## Live results so far
+
+Honest numbers from real agent runs on the bundled bench:
+
+| Setup | Baseline (S₀) | What happened |
+|---|---|---|
+| deepseek-v4-flash, 15 turns | **1.0** | Algorithm 1 **early-stop** — nothing to evolve |
+| deepseek-v4-flash, 8 turns | **1.0** | same |
+| deepseek-v4-flash, forced | 1.0 | proposer created `spec_literal_transform` → R_val=1.0, not > R_best → **rejected** |
+| deepseek-v4-flash, forced | 1.0 | maintainer distilled **4 pattern pages** (incl. `execute_code` blocked in sandbox, ripgrep binary misses); proposer created `exact-match-sandbox-task` → R_val=0.8889 (skill *hurt*) → **rejected** |
+| **gemma-3-4b (free, OpenRouter), 8 turns** | **0.8889** | iteration 1 running — the "small model + skills" scenario |
+
+The gating mechanism has now caught both a neutral and a *harmful* proposal live. Full logs in [docs/RUNS.md](docs/RUNS.md).
+
+## Design decisions worth knowing
+
+- **`--in` doesn't pin the agent's CWD** in single-query runs → every inference prompt embeds an absolute `WORKING DIRECTORY` and forbids exploring outside it.
+- **Sessions live in `state.db`**, not loose files → transcripts are materialized via `hermes sessions export --format jsonl`.
+- **Rejected proposals are never lost** — their full content is embedded in `wiki/skill-impact.md` so future proposers don't repeat them (per Appendix E.3).
+- **The demo bench has traps**: subtle-spec tasks and multi-bug debug scripts whose bugs *don't* compensate (verified at generation time).
+
+## How this compares to other community implementations
+
+We audited the three repos that appeared alongside the paper (see [docs/RUNS.md](docs/RUNS.md)). This is the only one that: runs on a real agent stack (Hermes), gates skills through a fully isolated profile, ships verbatim Appendix E prompts, and has a live-verified end-to-end loop (maintainer → proposer → gate → rollback).
+
+## Roadmap
+
+- [ ] Multi-iteration compounding run (the paper's key ablation: wiki accumulation matters)
+- [ ] Skill *transfer* across models (paper: skills evolved by one model help another)
+- [ ] Real-task domains (your recurring workflows as graded task sets)
+- [ ] `compare` command for statistical run comparison
+- [ ] Cron-driven overnight evolution (`hermes cron`)
+
+## License
+
+MIT — see [LICENSE](LICENSE). Based on arXiv:2608.27454 (Google Research); all prompts in `skills/` are adapted from the paper's Appendix E. Inspired by [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).

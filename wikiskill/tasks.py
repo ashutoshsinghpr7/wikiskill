@@ -16,9 +16,6 @@ from __future__ import annotations
 import json
 import os
 
-from .scoring import grade  # noqa: F401  (re-export for graders registry)
-from . import scoring as _scoring
-
 KNOWN_GRADERS = {"exact", "contains", "json_field", "code_stdout"}
 TASKS_FILE = "tasks.json"
 SANDBOX_ROOT = os.path.join("bench", "tasks")
