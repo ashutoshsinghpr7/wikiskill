@@ -124,6 +124,16 @@ def accept_commit(ws: str, k: int, r_val: float) -> None:
 
 # ---------------------------------------------------------------- run helpers
 
+def _session_had_no_tool_calls(session_jsonl: str) -> bool:
+    """True when the exported session performed zero tool calls (launch failure)."""
+    try:
+        with open(session_jsonl, encoding="utf-8", errors="replace") as f:
+            first = json.loads(f.readline())
+        return first.get("tool_call_count") == 0
+    except (OSError, ValueError):
+        return False
+
+
 def run_task(ws: str, task: dict, it: int, *, model: str | None = None,
              runner=agents.run_agent, dry_run: bool = False,
              overwrite: bool = False) -> dict:
@@ -133,10 +143,18 @@ def run_task(ws: str, task: dict, it: int, *, model: str | None = None,
     sandbox = tasks_mod.sandbox_dir(ws, task["id"])
     if not os.path.isdir(sandbox):
         sandbox = tasks_mod.materialize(ws, task)
+    else:
+        # Fresh execution environment per rollout: never grade stale
+        # deliverables left by earlier runs (a dead agent run would otherwise
+        # score phantom values from the previous experiment).
+        tasks_mod.materialize(ws, task, force=True)
     tag = f"iter-{it:02d}/{task['split']}/{task['id']}"
     prompt = prompts.inference_prompt(task, sandbox=sandbox)
     res = runner(ws, prompt, tag=tag, workdir=sandbox, model=model, dry_run=dry_run)
     score = None if dry_run else scoring.grade(task, sandbox)
+    if not dry_run and res.get("session_file") and _session_had_no_tool_calls(res["session_file"]):
+        print(f"[wikiskill] ⚠ task {task['id']} session made 0 tool calls "
+              f"(agent launch failure?) — scored from fresh sandbox, expect 0.0")
     meta = {
         "task_id": task["id"], "split": task["split"], "iter": it,
         "title": task["title"], "score": score, "model": model,

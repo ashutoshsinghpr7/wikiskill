@@ -72,8 +72,8 @@ def cmd_evolve(args) -> int:
         print(f"no workspace at {ws} (run `wikiskill init <domain>`)")
         return 1
     state = harness.evolve(ws, iters=args.iters, model=args.model,
-                           dry_run=args.dry_run, verbose=True,
-                           max_turns=args.max_turns,
+                           provider=args.provider, dry_run=args.dry_run,
+                           verbose=True, max_turns=args.max_turns,
                            no_early_stop=args.no_early_stop)
     print(f"done: baseline={state.get('baseline')} r_best={state.get('r_best')}")
     return 0
@@ -167,7 +167,9 @@ def main(argv: list[str] | None = None) -> int:
     sp = sub.add_parser("evolve", help="run the full evolution loop (Algorithm 1)")
     add_ws(sp)
     sp.add_argument("--iters", type=int, default=3)
-    sp.add_argument("--model")
+    sp.add_argument("--model", help="patch the isolated profile's default model "
+                                    "(e.g. google/gemini-2.5-flash-lite)")
+    sp.add_argument("--provider", help="provider for --model (e.g. openrouter)")
     sp.add_argument("--max-turns", type=int, default=15,
                     help="per-task inference turn budget (tighter = harder)")
     sp.add_argument("--no-early-stop", action="store_true",

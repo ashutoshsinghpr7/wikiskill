@@ -85,7 +85,8 @@ def propose_step(ws: str, k: int, train_results: list[dict], runner=agents.run_a
 
 
 def evolve(ws: str, iters: int = 3, model: str | None = None,
-           runner=agents.run_agent, dry_run: bool = False, verbose: bool = True,
+           provider: str | None = None, runner=agents.run_agent,
+           dry_run: bool = False, verbose: bool = True,
            max_turns: int = 15, no_early_stop: bool = False) -> dict:
     def log(msg: str) -> None:
         if verbose:
@@ -101,6 +102,12 @@ def evolve(ws: str, iters: int = 3, model: str | None = None,
     splits = tasks_mod.splits(ws)
     train, val = splits["train"], splits["val"]
     state = gating.load_state(ws)
+    if model and not dry_run:
+        # The `-m` flag can't resolve models for unconfigured providers; patch
+        # the isolated profile's default model instead (normal provider path).
+        agents.patch_profile_model(ws, model, provider)
+        log(f"profile default model → {model} (provider: {provider or 'unchanged'})")
+        model = None  # runs use the patched profile default; meta records None
     wiki.ensure(ws)
 
     if state.get("baseline") is None:

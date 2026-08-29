@@ -129,6 +129,41 @@ def _session_id_from_stdout(stdout_path: str) -> str | None:
     return m.group(1) if m else None
 
 
+def patch_profile_model(ws: str, model: str, provider: str | None = None) -> None:
+    """Point the isolated profile's default model at `model` (optional provider).
+
+    The `-m` CLI flag fails to resolve models for unconfigured providers (falls
+    through to a broken `moa` fallback). Patching the profile's config.yaml
+    default routes every agent run through the normal default-model path, which
+    works for any provider with creds in the copied .env.
+
+    Also strips the `fallback_providers` block: the default config carries a
+    literal `model: default` placeholder that surfaces as
+    "HTTP 400: default is not a valid model ID" when a request is delegated.
+    """
+    cfg_path = os.path.join(profile_dir(ws), "config.yaml")
+    if not os.path.exists(cfg_path):
+        return
+    with open(cfg_path, encoding="utf-8") as f:
+        lines = f.readlines()
+    out, skip = [], False
+    for i, line in enumerate(lines):
+        if line.startswith("fallback_providers:"):
+            skip = True
+            continue
+        if skip:
+            if line[:2] == "  " or line.strip() == "":
+                continue
+            skip = False
+        if line.startswith("  default:") and "model" in "".join(lines[max(0, i - 2):i]):
+            line = f"  default: {model}\n"
+        elif line.startswith("  provider:") and provider:
+            line = f"  provider: {provider}\n"
+        out.append(line)
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        f.writelines(out)
+
+
 def run_agent(ws: str, prompt: str, *, tag: str, toolsets: str = DEFAULT_TOOLSETS,
               model: str | None = None, max_turns: int = 15, run_budget: int = 300,
               workdir: str | None = None, include_framework: bool = False,

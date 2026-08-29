@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 
 KNOWN_GRADERS = {"exact", "contains", "json_field", "code_stdout"}
 TASKS_FILE = "tasks.json"
@@ -84,6 +85,16 @@ def materialize(ws: str, task: dict, force: bool = False) -> str:
     """
     d = sandbox_dir(ws, task["id"])
     os.makedirs(d, exist_ok=True)
+    if force:
+        # Fresh execution environment: remove anything not in the task spec so
+        # stale deliverables from earlier runs can never be graded.
+        for name in os.listdir(d):
+            p = os.path.join(d, name)
+            if name not in task["sandbox"]:
+                if os.path.isdir(p) and not os.path.islink(p):
+                    shutil.rmtree(p)
+                else:
+                    os.remove(p)
     for rel, content in task["sandbox"].items():
         p = os.path.join(d, rel)
         if force or not os.path.exists(p):
