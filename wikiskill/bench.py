@@ -49,7 +49,10 @@ def spec_tasks(rng: random.Random) -> list[dict]:
         })
 
     # --- Format 2: semicolon-separated, UPPERCASE names, header row, qty > 0
-    for i, (split, unused) in enumerate([("train", 0), ("train", 0)], start=1):
+    # spec-format2-2 lives in val: agents at tight budgets misread "one line per
+    # product" as aggregate-by-name, so it fails at baseline and gives the
+    # evolution loop a recoverable val failure.
+    for i, (split, unused) in enumerate([("train", 0), ("val", 0)], start=1):
         products = [{"name": rng.choice(["apple", "banana", "cherry", "date",
                                          "elderberry", "fig"]),
                      "qty": rng.randint(0, 25)} for _ in range(7)]

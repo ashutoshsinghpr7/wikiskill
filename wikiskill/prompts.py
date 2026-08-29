@@ -63,13 +63,18 @@ Procedure:
    reasoning, tool calls, outputs, final answer). Focus on the low-scoring
    traces for root-cause analysis; also read passing traces to preserve
    effective behavior.
+   IMPORTANT — traces can be very long. Do NOT read every line of every trace.
+   Use search_files to locate failures/errors, read the last few messages of a
+   failed run, and skip tool outputs you don't need. Reading selectively leaves
+   budget for writing.
 2. Perform deep trace analysis: compare successful vs failed tasks, identify
    ACTION patterns (not just error messages), check whether any active skill
    guidance was helpful.
-3. Update the wiki incrementally: create/update pattern pages under wiki/patterns/,
-   rewrite wiki/index.md (complete content, one line per pattern:
-   [name](wiki/patterns/name.md): PROBLEM + ROOT CAUSE + FIX in one or two
-   sentences), append your findings to wiki/log.md.
+3. Update the wiki incrementally — WRITE EARLY, edit later. Create/update
+   pattern pages under wiki/patterns/, rewrite wiki/index.md (complete content,
+   one line per pattern: [name](wiki/patterns/name.md): PROBLEM + ROOT CAUSE +
+   FIX in one or two sentences), append your findings to wiki/log.md.
+   Finish writing before you run out of turns.
 4. Keep pattern pages 10-30 lines, concise, no duplicates.
 """
 
@@ -97,12 +102,14 @@ Rules (from the paper's Appendix E.3):
 1. Read wiki/index.md FIRST, then wiki/skill-impact.md (contains full content of
    rejected proposals — DO NOT repeat rejected approaches).
 2. Read relevant pattern pages, then read at least 4 execution traces for failed
-   tasks to diagnose root causes.
+   tasks to diagnose root causes. Traces can be long — read selectively
+   (search_files for errors, read tails); do not read every line.
 3. Decide: create (new skill), patch (existing skill), or no_action.
 4. Write your proposal JSON to: {os.path.join(ws, 'runs', 'proposals', f'iter-{it:02d}.json')}
    Create/patch skills under {os.path.join(ws, 'skills', 'active')} ONLY via the proposal file;
    the harness applies it. The harness applies the proposal, validates it on the
    validation split, and records the outcome in skill-impact.md.
+   WRITE EARLY — leave enough turns to finish the file before the cap.
 
 Proposal JSON schema (write the file with write_file):
 {{"action": "create", "name": "snake_case", "skill_md": "full SKILL.md with YAML frontmatter + When to Apply + When NOT to Apply + Instructions", "purpose_md": "Origin + Patterns Addressed + Evolution History"}}
@@ -123,9 +130,11 @@ def gate_outcome_entry(ws: str, it: int, proposal: dict, r_val: float | None,
     name = proposal.get("name", "?")
     action = proposal.get("action", "?")
     body = [head, "", f"Proposal: {action} `{name}`",
-            f"Full proposal: `{prop_path}` (kept forever, including rejected ones)"]
+            f"Proposal file: `{prop_path}` (re-run collisions possible — full content embedded below)"]
     if diff.strip():
         body += ["", "```diff", diff.strip(), "```"]
+    body += ["", "Full proposal content (paper: rejected proposals must remain visible to future proposers):",
+             "", "```json", json.dumps(proposal, indent=2), "```"]
     if accepted:
         body += ["", f"Validation: {r_val} > R_best → accepted, skills committed."]
     else:
