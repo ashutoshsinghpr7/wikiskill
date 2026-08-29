@@ -18,8 +18,17 @@ INFERENCE_PREFIX = (
 )
 
 
-def inference_prompt(task: dict) -> str:
-    return INFERENCE_PREFIX + f"TASK: {task['title']}\n\n{task['prompt']}"
+def inference_prompt(task: dict, sandbox: str | None = None) -> str:
+    anchor = ""
+    if sandbox:
+        anchor = (
+            f"\n\nWORKING DIRECTORY: {sandbox}\n"
+            "Read input files from and write ALL deliverables into the WORKING "
+            "DIRECTORY above. Use absolute paths (prefix every path with it). "
+            "Do not guess the directory — it is given. Verify the final file "
+            "exists at its absolute path before finishing.\n"
+        )
+    return INFERENCE_PREFIX + f"TASK: {task['title']}\n\n{task['prompt']}" + anchor
 
 
 def _trace_manifest(traces: list[dict]) -> str:

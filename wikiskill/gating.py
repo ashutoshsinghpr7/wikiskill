@@ -134,7 +134,7 @@ def run_task(ws: str, task: dict, it: int, *, model: str | None = None,
     if not os.path.isdir(sandbox):
         sandbox = tasks_mod.materialize(ws, task)
     tag = f"iter-{it:02d}/{task['split']}/{task['id']}"
-    prompt = prompts.inference_prompt(task)
+    prompt = prompts.inference_prompt(task, sandbox=sandbox)
     res = runner(ws, prompt, tag=tag, workdir=sandbox, model=model, dry_run=dry_run)
     score = None if dry_run else scoring.grade(task, sandbox)
     meta = {
@@ -156,8 +156,10 @@ def mean_score(results: list[dict]) -> float:
 
 
 def run_gate(ws: str, tasks: list[dict], it: int, *, model: str | None = None,
-             runner=agents.run_agent, dry_run: bool = False) -> dict:
+             runner=agents.run_agent, dry_run: bool = False,
+             overwrite: bool = False) -> dict:
     """Validation rollout over a task split with the *current* active skills."""
-    results = [run_task(ws, t, it, model=model, runner=runner, dry_run=dry_run)
+    results = [run_task(ws, t, it, model=model, runner=runner, dry_run=dry_run,
+                        overwrite=overwrite)
                for t in tasks]
     return {"iter": it, "results": results, "mean": mean_score(results)}

@@ -32,26 +32,31 @@ def read_sandbox_file(sandbox: str, rel: str) -> str:
 def grade(task: dict, sandbox: str) -> float:
     g = task["grader"]
     t = g["type"]
-    if t == "exact":
-        got = read_sandbox_file(sandbox, g["file"])
-        return 1.0 if normalize(got) == normalize(g["expected"]) else 0.0
-    if t == "contains":
-        got = read_sandbox_file(sandbox, g["file"])
-        return 1.0 if g["needle"] in got else 0.0
-    if t == "json_field":
-        data = json.loads(read_sandbox_file(sandbox, g["file"]))
-        val = data
-        for key in g["path"]:
-            val = val[key]
-        return 1.0 if normalize(val) == normalize(g["expected"]) else 0.0
-    if t == "code_stdout":
-        script = g.get("script", "solve.py")
-        p = subprocess.run(
-            ["python3", script],
-            cwd=sandbox,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        return 1.0 if normalize(p.stdout) == normalize(g["expected"]) else 0.0
+    try:
+        if t == "exact":
+            got = read_sandbox_file(sandbox, g["file"])
+            return 1.0 if normalize(got) == normalize(g["expected"]) else 0.0
+        if t == "contains":
+            got = read_sandbox_file(sandbox, g["file"])
+            return 1.0 if g["needle"] in got else 0.0
+        if t == "json_field":
+            data = json.loads(read_sandbox_file(sandbox, g["file"]))
+            val = data
+            for key in g["path"]:
+                val = val[key]
+            return 1.0 if normalize(val) == normalize(g["expected"]) else 0.0
+        if t == "code_stdout":
+            script = g.get("script", "solve.py")
+            p = subprocess.run(
+                ["python3", script],
+                cwd=sandbox,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            return 1.0 if normalize(p.stdout) == normalize(g["expected"]) else 0.0
+    except (FileNotFoundError, NotADirectoryError, json.JSONDecodeError,
+            KeyError, IndexError, subprocess.TimeoutExpired):
+        # Missing deliverable, unparseable output, or timeout → failed task.
+        return 0.0
     raise ValueError(f"unknown grader type: {t!r}")

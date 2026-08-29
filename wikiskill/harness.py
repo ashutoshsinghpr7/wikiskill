@@ -97,7 +97,8 @@ def evolve(ws: str, iters: int = 3, model: str | None = None,
 
     if state.get("baseline") is None:
         log(f"baseline validation: {len(val)} val tasks, S0=∅")
-        gate0 = gating.run_gate(ws, val, 0, model=model, runner=runner, dry_run=dry_run)
+        gate0 = gating.run_gate(ws, val, 0, model=model, runner=runner,
+                                dry_run=dry_run, overwrite=True)
         state["baseline"] = gate0["mean"]
         state["r_best"] = gate0["mean"]
         wiki.append_log(ws, f"iter-00 baseline: R={gate0['mean']} (S0=∅, {len(val)} val tasks)")
@@ -134,7 +135,8 @@ def evolve(ws: str, iters: int = 3, model: str | None = None,
         diff = gating.skill_diff(ws)
 
         log(f"iter {k}: validation gating ({len(val)} val tasks)")
-        gatek = gating.run_gate(ws, val, k, model=model, runner=runner, dry_run=dry_run)
+        gatek = gating.run_gate(ws, val, k, model=model, runner=runner,
+                                dry_run=dry_run, overwrite=True)
         r_val = gatek["mean"]
         prev_best = state["r_best"]
         accepted = r_val > prev_best
