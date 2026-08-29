@@ -85,10 +85,18 @@ def propose_step(ws: str, k: int, train_results: list[dict], runner=agents.run_a
 
 
 def evolve(ws: str, iters: int = 3, model: str | None = None,
-           runner=agents.run_agent, dry_run: bool = False, verbose: bool = True) -> dict:
+           runner=agents.run_agent, dry_run: bool = False, verbose: bool = True,
+           max_turns: int = 15) -> dict:
     def log(msg: str) -> None:
         if verbose:
             print(f"[wikiskill] {msg}")
+
+    if runner is agents.run_agent and max_turns != 15:
+        base_runner = runner
+
+        def runner(*a, **k):
+            k.setdefault("max_turns", max_turns)
+            return base_runner(*a, **k)
 
     splits = tasks_mod.splits(ws)
     train, val = splits["train"], splits["val"]

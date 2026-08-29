@@ -331,7 +331,116 @@ def find_tasks(rng: random.Random) -> list[dict]:
     return out
 
 
+def trap_tasks(rng: random.Random) -> list[dict]:
+    """Harder tasks: subtle spec traps + debug-the-buggy-script tasks.
+
+    These reliably fail naive agents at S0 (they don't read every clause of the
+    spec, or patch symptoms instead of root causes), giving the evolution loop
+    real failures to learn from.
+    """
+    out = []
+
+    # --- Trap 1: quantities are in dozens (multiply by 12)
+    products = [{"name": rng.choice(["bolt", "nut", "screw", "washer", "bracket",
+                                     "hinge", "clamp", "rivet"]),
+                 "qty_dozens": rng.randint(1, 20)} for _ in range(8)]
+    kept = sorted((p for p in products if p["qty_dozens"] >= 2), key=lambda p: p["name"])
+    expected = "\n".join(f"{p['name']}|{p['qty_dozens'] * 12}" for p in kept)
+    spec = (
+        "# Output specification\n"
+        "Write the deliverable to `output.txt`:\n"
+        "- `products.json` lists items with `qty_dozens` — NOTE: quantities are "
+        "given in DOZENS. Report the ACTUAL unit count (qty_dozens × 12).\n"
+        "- include only products with qty_dozens >= 2 (before conversion)\n"
+        "- sorted by name (case-insensitive), format NAME|COUNT (pipe, no spaces)\n"
+        "- no header, no trailing blank lines\n"
+    )
+    out.append({
+        "id": "trap-dozens", "split": "train",
+        "title": "Convert dozens to actual units per spec",
+        "prompt": ("Read `spec.md` and `products.json` in the current directory. "
+                   "Follow `spec.md` exactly and produce `output.txt`. Pay "
+                   "attention to EVERY clause in the spec."),
+        "sandbox": {"spec.md": spec, "products.json": json.dumps(products, indent=2)},
+        "grader": {"type": "exact", "file": "output.txt", "expected": expected},
+    })
+
+    # --- Trap 2: exclude names containing the letter 'e'
+    items = [{"name": rng.choice(["alpha", "bravo", "charlie", "delta", "echo",
+                                  "foxtrot", "golf", "hotel"]),
+              "qty": rng.randint(1, 30)} for _ in range(9)]
+    kept = sorted((p for p in items if "e" not in p["name"].lower()),
+                  key=lambda p: p["qty"])
+    expected = "\n".join(f"{p['name']}|{p['qty']}" for p in kept)
+    spec = (
+        "# Output specification\n"
+        "Write the deliverable to `output.txt`:\n"
+        "- from `items.json`, EXCLUDE every product whose name contains the "
+        "letter `e` (any case)\n"
+        "- include the remaining products sorted by quantity ASCENDING\n"
+        "- format NAME|QTY (pipe, no spaces), no header, no trailing blank lines\n"
+    )
+    out.append({
+        "id": "trap-letter-e", "split": "train",
+        "title": "Filter by hidden letter constraint",
+        "prompt": ("Read `spec.md` and `items.json` in the current directory. "
+                   "Follow `spec.md` exactly and produce `output.txt`. Pay "
+                   "attention to EVERY clause in the spec."),
+        "sandbox": {"spec.md": spec, "items.json": json.dumps(items, indent=2)},
+        "grader": {"type": "exact", "file": "output.txt", "expected": expected},
+    })
+
+    # --- Trap 3: off-by-one bug in the provided script (must debug, not rewrite blindly)
+    a, b = 1, 30
+    buggy = (
+        "# counts multiples of 3 in [a, b]\n"
+        "a, b = map(int, open('input.txt').read().split())\n"
+        "c = 0\n"
+        "for i in range(a, b):\n"      # BUG: misses b itself
+        "    if i % 3 == 0:\n"
+        "        c += 1\n"
+        "print(c)\n"
+    )
+    expected = str(sum(1 for i in range(a, b + 1) if i % 3 == 0))
+    out.append({
+        "id": "debug-boundary", "split": "train",
+        "title": "Fix the off-by-one bug in solve.py",
+        "prompt": (f"`input.txt` contains two integers `a b`. `solve.py` is SUPPOSED "
+                   f"to print the count of integers i with a <= i <= b that are "
+                   f"divisible by 3, but it has a bug. DEBUG it: run it, see the "
+                   f"wrong output, fix the root cause, and verify `python3 solve.py` "
+                   f"prints the correct single number. Do not change the program's "
+                   f"behavior other than fixing the bug."),
+        "sandbox": {"input.txt": f"{a} {b}", "solve.py": buggy},
+        "grader": {"type": "code_stdout", "script": "solve.py", "expected": expected},
+    })
+
+    # --- Trap 4 (val): script computes a+b but must compute a*b
+    pairs = [(rng.randint(1, 9), rng.randint(1, 9)) for _ in range(8)]
+    expected = str(sum(x * y for x, y in pairs))
+    buggy = (
+        "# prints the sum of a*b products over all pairs\n"
+        "total = 0\n"
+        "for line in open('input.txt'):\n"
+        "    a, b = map(int, line.split())\n"
+        "    total += a + b\n"         # BUG: should be a * b
+        "print(total)\n"
+    )
+    out.append({
+        "id": "debug-product", "split": "val",
+        "title": "Fix the wrong-operation bug in solve.py",
+        "prompt": ("`input.txt` has one line per pair `a b`. `solve.py` is SUPPOSED "
+                   "to print the sum of a×b over all pairs, but has a bug. DEBUG it: "
+                   "run it, find the wrong operation, fix the root cause, and verify "
+                   "`python3 solve.py` prints the correct single number."),
+        "sandbox": {"input.txt": "\n".join(f"{x} {y}" for x, y in pairs) + "\n",
+                    "solve.py": buggy},
+        "grader": {"type": "code_stdout", "script": "solve.py", "expected": expected},
+    })
+    return out
+
+
 def generate(seed: int = 42) -> list[dict]:
     rng = random.Random(seed)
     return (spec_tasks(rng) + extract_tasks(rng) + code_tasks(rng) +
-            csv_tasks(rng) + find_tasks(rng))
+            csv_tasks(rng) + find_tasks(rng) + trap_tasks(rng))

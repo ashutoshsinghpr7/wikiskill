@@ -26,7 +26,7 @@ rejected ones are rolled back, and the wiki always persists.
 
 ```bash
 pip install -e .            # installs the `wikiskill` CLI
-wikiskill init demo         # workspace + 18-task auto-graded demo bench (12 train / 6 val)
+wikiskill init demo         # workspace + 22-task auto-graded demo bench (15 train / 7 val)
 wikiskill status
 wikiskill evolve --iters 3  # full Algorithm 1 loop (real Hermes agent runs)
 ```

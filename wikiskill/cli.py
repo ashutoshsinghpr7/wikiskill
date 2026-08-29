@@ -73,7 +73,8 @@ def cmd_evolve(args) -> int:
         print(f"no workspace at {ws} (run `wikiskill init <domain>`)")
         return 1
     state = harness.evolve(ws, iters=args.iters, model=args.model,
-                           dry_run=args.dry_run, verbose=True)
+                           dry_run=args.dry_run, verbose=True,
+                           max_turns=args.max_turns)
     print(f"done: baseline={state.get('baseline')} r_best={state.get('r_best')}")
     return 0
 
@@ -98,7 +99,10 @@ def cmd_run_task(args) -> int:
     if not t:
         print(f"unknown task: {args.task_id}")
         return 1
-    r = gating.run_task(ws, t, args.iter, model=args.model, dry_run=args.dry_run)
+    r = gating.run_task(ws, t, args.iter, model=args.model, dry_run=args.dry_run,
+                        runner=lambda *a, **k: agents.run_agent(
+                            *a, **k, max_turns=args.max_turns,
+                            run_budget=args.run_budget))
     print(f"task {t['id']}: score={r.get('score')}")
     if r.get("result", {}).get("cmd") and args.dry_run:
         print("cmd: " + " ".join(r["result"]["cmd"]))
@@ -166,6 +170,8 @@ def main(argv: list[str] | None = None) -> int:
     add_ws(sp)
     sp.add_argument("--iters", type=int, default=3)
     sp.add_argument("--model")
+    sp.add_argument("--max-turns", type=int, default=15,
+                    help="per-task inference turn budget (tighter = harder)")
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=cmd_evolve)
 
@@ -181,6 +187,8 @@ def main(argv: list[str] | None = None) -> int:
     add_ws(sp); sp.add_argument("task_id")
     sp.add_argument("--iter", type=int, default=1)
     sp.add_argument("--model")
+    sp.add_argument("--max-turns", type=int, default=15)
+    sp.add_argument("--run-budget", type=int, default=300)
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=cmd_run_task)
 

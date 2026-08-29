@@ -91,9 +91,9 @@ def test_trace_store_immutable(tmp_path):
 def test_bench_generates_valid_tasks():
     tasks = bench.generate(seed=42)
     tasks_mod.validate(tasks)
-    assert len(tasks) == 18
-    assert sum(1 for t in tasks if t["split"] == "train") == 12
-    assert sum(1 for t in tasks if t["split"] == "val") == 6
+    assert len(tasks) == 22
+    assert sum(1 for t in tasks if t["split"] == "train") == 15
+    assert sum(1 for t in tasks if t["split"] == "val") == 7
     # deterministic
     assert bench.generate(seed=42) == tasks
 
