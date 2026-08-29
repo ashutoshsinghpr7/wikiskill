@@ -92,8 +92,8 @@ def test_bench_generates_valid_tasks():
     tasks = bench.generate(seed=42)
     tasks_mod.validate(tasks)
     assert len(tasks) == 22
-    assert sum(1 for t in tasks if t["split"] == "train") == 15
-    assert sum(1 for t in tasks if t["split"] == "val") == 7
+    assert sum(1 for t in tasks if t["split"] == "train") == 14
+    assert sum(1 for t in tasks if t["split"] == "val") == 8
     # deterministic
     assert bench.generate(seed=42) == tasks
 

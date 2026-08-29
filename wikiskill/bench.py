@@ -403,7 +403,7 @@ def trap_tasks(rng: random.Random) -> list[dict]:
     )
     expected = str(sum(1 for i in range(a, b + 1) if i % 3 == 0))
     out.append({
-        "id": "debug-boundary", "split": "train",
+        "id": "debug-boundary", "split": "val",
         "title": "Fix the off-by-one bug in solve.py",
         "prompt": (f"`input.txt` contains two integers `a b`. `solve.py` is SUPPOSED "
                    f"to print the count of integers i with a <= i <= b that are "
