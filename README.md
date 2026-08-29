@@ -87,7 +87,7 @@ workspaces/demo/
 | `wikiskill init <domain>` | Create workspace + demo bench |
 | `wikiskill bench --reset` | Regenerate tasks (deterministic, seed=42) |
 | `wikiskill status` | Workspace state: scores, skills, wiki, history |
-| `wikiskill evolve --iters N [--model M] [--max-turns N] [--no-early-stop]` | The full loop |
+| `wikiskill evolve --iters N [--model M] [--provider P] [--max-turns N] [--no-early-stop]` | The full loop (`--model`/`--provider` patch the isolated profile's default model, e.g. `google/gemini-2.5-flash-lite` + `openrouter`) |
 | `wikiskill run-task <id>` | Single inference rollout (debug) |
 | `wikiskill maintain` / `wikiskill propose` | Run those agent turns manually |
 
@@ -117,9 +117,10 @@ Honest numbers from real agent runs on the bundled bench:
 | deepseek-v4-flash, 8 turns | **1.0** | same |
 | deepseek-v4-flash, forced | 1.0 | proposer created `spec_literal_transform` → R_val=1.0, not > R_best → **rejected** |
 | deepseek-v4-flash, forced | 1.0 | maintainer distilled **4 pattern pages** (incl. `execute_code` blocked in sandbox, ripgrep binary misses); proposer created `exact-match-sandbox-task` → R_val=0.8889 (skill *hurt*) → **rejected** |
-| **gemma-3-4b (free, OpenRouter), 8 turns** | **0.8889** | iteration 1 running — the "small model + skills" scenario |
+| gemma-3-4b (free, OpenRouter) | — | **invalid run, thrown out** — dead agent sessions were phantom-graded against stale sandboxes. The maintainer's pattern page caught the framework's own bug; fixed + regression-tested (see [docs/RUNS.md](docs/RUNS.md) Run 4) |
+| **gemini-2.5-flash-lite (free, OpenRouter), 8 turns** | **< 1.0 (real)** | the "small model + skills" scenario — results appended when complete |
 
-The gating mechanism has now caught both a neutral and a *harmful* proposal live. Full logs in [docs/RUNS.md](docs/RUNS.md).
+The gating mechanism has caught both a neutral and a *harmful* proposal live. Full logs in [docs/RUNS.md](docs/RUNS.md).
 
 ## Design decisions worth knowing
 
