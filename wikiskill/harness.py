@@ -86,7 +86,7 @@ def propose_step(ws: str, k: int, train_results: list[dict], runner=agents.run_a
 
 def evolve(ws: str, iters: int = 3, model: str | None = None,
            runner=agents.run_agent, dry_run: bool = False, verbose: bool = True,
-           max_turns: int = 15) -> dict:
+           max_turns: int = 15, no_early_stop: bool = False) -> dict:
     def log(msg: str) -> None:
         if verbose:
             print(f"[wikiskill] {msg}")
@@ -113,7 +113,7 @@ def evolve(ws: str, iters: int = 3, model: str | None = None,
         gating.save_state(ws, state)
 
     for k in range(state["next_iter"], iters + 1):
-        if state["r_best"] == 1.0:
+        if state["r_best"] == 1.0 and not no_early_stop:
             log("R_best == 1.0 → early stop")
             break
         log(f"iter {k}/{iters}: train rollouts ({len(train)} tasks)")

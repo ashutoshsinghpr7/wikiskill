@@ -25,8 +25,10 @@ def inference_prompt(task: dict, sandbox: str | None = None) -> str:
             f"\n\nWORKING DIRECTORY: {sandbox}\n"
             "Read input files from and write ALL deliverables into the WORKING "
             "DIRECTORY above. Use absolute paths (prefix every path with it). "
-            "Do not guess the directory — it is given. Verify the final file "
-            "exists at its absolute path before finishing.\n"
+            "Do not guess the directory — it is given. Do NOT explore, read, or "
+            "modify anything outside the WORKING DIRECTORY (ignore git state and "
+            "files above it). Verify the final file exists at its absolute path "
+            "before finishing.\n"
         )
     return INFERENCE_PREFIX + f"TASK: {task['title']}\n\n{task['prompt']}" + anchor
 

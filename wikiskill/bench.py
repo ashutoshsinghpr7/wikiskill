@@ -390,49 +390,61 @@ def trap_tasks(rng: random.Random) -> list[dict]:
         "grader": {"type": "exact", "file": "output.txt", "expected": expected},
     })
 
-    # --- Trap 3: off-by-one bug in the provided script (must debug, not rewrite blindly)
-    a, b = 1, 30
+    # --- Trap 3 (val): TWO bugs — off-by-one AND wrong modulus. Fixing one reveals the other.
+    # Input chosen so the bugs do NOT compensate: multiples of 3 in [2,31] = 10,
+    # but the buggy residue-class count in range(2,31) = 9.
+    a, b = 2, 31
     buggy = (
         "# counts multiples of 3 in [a, b]\n"
         "a, b = map(int, open('input.txt').read().split())\n"
         "c = 0\n"
-        "for i in range(a, b):\n"      # BUG: misses b itself
-        "    if i % 3 == 0:\n"
+        "for i in range(a, b):\n"          # BUG 1: misses b itself
+        "    if i % 3 == 1:\n"             # BUG 2: wrong modulus check
         "        c += 1\n"
         "print(c)\n"
     )
     expected = str(sum(1 for i in range(a, b + 1) if i % 3 == 0))
+    buggy_val = sum(1 for i in range(a, b) if i % 3 == 1)
+    assert buggy_val != int(expected), "trap debug-boundary: bugs compensate!"
     out.append({
         "id": "debug-boundary", "split": "val",
-        "title": "Fix the off-by-one bug in solve.py",
+        "title": "Fix the two bugs in solve.py",
         "prompt": (f"`input.txt` contains two integers `a b`. `solve.py` is SUPPOSED "
                    f"to print the count of integers i with a <= i <= b that are "
-                   f"divisible by 3, but it has a bug. DEBUG it: run it, see the "
-                   f"wrong output, fix the root cause, and verify `python3 solve.py` "
+                   f"divisible by 3, but it is WRONG. DEBUG it thoroughly: run it, "
+                   f"see the wrong output, find ALL the bugs (there may be MORE "
+                   f"THAN ONE), fix each root cause, and verify `python3 solve.py` "
                    f"prints the correct single number. Do not change the program's "
-                   f"behavior other than fixing the bug."),
+                   f"behavior other than fixing bugs."),
         "sandbox": {"input.txt": f"{a} {b}", "solve.py": buggy},
         "grader": {"type": "code_stdout", "script": "solve.py", "expected": expected},
     })
 
-    # --- Trap 4 (val): script computes a+b but must compute a*b
-    pairs = [(rng.randint(1, 9), rng.randint(1, 9)) for _ in range(8)]
-    expected = str(sum(x * y for x, y in pairs))
+    # --- Trap 4 (val): TWO bugs — wrong operation AND off-by-one total init.
+    # Pairs are regenerated until the buggy output differs from the expected one
+    # (seeded rng keeps the result deterministic).
+    while True:
+        pairs = [(rng.randint(1, 9), rng.randint(1, 9)) for _ in range(8)]
+        expected = str(sum(x * y for x, y in pairs))
+        buggy_val = 1 + sum(x + y for x, y in pairs)
+        if buggy_val != int(expected):
+            break
     buggy = (
         "# prints the sum of a*b products over all pairs\n"
-        "total = 0\n"
+        "total = 1\n"                       # BUG 2: should start at 0
         "for line in open('input.txt'):\n"
         "    a, b = map(int, line.split())\n"
-        "    total += a + b\n"         # BUG: should be a * b
+        "    total += a + b\n"              # BUG 1: should be a * b
         "print(total)\n"
     )
     out.append({
         "id": "debug-product", "split": "val",
-        "title": "Fix the wrong-operation bug in solve.py",
+        "title": "Fix the two bugs in solve.py",
         "prompt": ("`input.txt` has one line per pair `a b`. `solve.py` is SUPPOSED "
-                   "to print the sum of a×b over all pairs, but has a bug. DEBUG it: "
-                   "run it, find the wrong operation, fix the root cause, and verify "
-                   "`python3 solve.py` prints the correct single number."),
+                   "to print the sum of a×b over all pairs, but it is WRONG. DEBUG "
+                   "it thoroughly: run it, find ALL the bugs (there may be MORE "
+                   "THAN ONE), fix each root cause, and verify `python3 solve.py` "
+                   "prints the correct single number."),
         "sandbox": {"input.txt": "\n".join(f"{x} {y}" for x, y in pairs) + "\n",
                     "solve.py": buggy},
         "grader": {"type": "code_stdout", "script": "solve.py", "expected": expected},

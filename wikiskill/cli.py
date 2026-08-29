@@ -74,7 +74,8 @@ def cmd_evolve(args) -> int:
         return 1
     state = harness.evolve(ws, iters=args.iters, model=args.model,
                            dry_run=args.dry_run, verbose=True,
-                           max_turns=args.max_turns)
+                           max_turns=args.max_turns,
+                           no_early_stop=args.no_early_stop)
     print(f"done: baseline={state.get('baseline')} r_best={state.get('r_best')}")
     return 0
 
@@ -172,6 +173,9 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--model")
     sp.add_argument("--max-turns", type=int, default=15,
                     help="per-task inference turn budget (tighter = harder)")
+    sp.add_argument("--no-early-stop", action="store_true",
+                    help="run iterations even when R_best=1.0 (dev/demo knob; "
+                         "Algorithm 1 would halt)")
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=cmd_evolve)
 
