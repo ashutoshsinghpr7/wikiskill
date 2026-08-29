@@ -51,18 +51,36 @@ This is the gating mechanism working as designed: it caught a **harmful**
 proposal live. Both rejected proposals' full content remain in
 `wiki/skill-impact.md`.
 
-## Run 4 — gemma-3-4b (free, OpenRouter), 8 turns — *the acceptance run*
+## Run 4 — gemma-3-4b (free, OpenRouter), 8 turns — *a cautionary tale*
 
-The paper's headline scenario: a small model that fails at S₀ and should
-benefit from evolved skills.
+We tried the paper's headline scenario with a genuinely small free model.
+**The run was invalid and was thrown out** — and the Wiki Maintainer agent
+caught the problem itself:
 
-| Phase | Result |
+| Symptom | Root cause |
 |---|---|
-| Probes | `debug-boundary` 1.0, `csv-north-count` 1.0, **`spec-format2-2` 0.0** |
-| Baseline gate (9 val, S₀=∅) | **R = 0.8889** → no early stop, iteration 1 runs |
-| Iteration 1 | train rollouts → maintainer → proposer → gate (in progress at time of writing) |
+| All sessions `tool_call_count=0`, `message_count=1` | **`-m` model routing is broken for unconfigured providers** — the request fell through to a `fallback_providers: [{provider: moa, model: default}]` entry, surfacing as `HTTP 400: default is not a valid model ID` |
+| Scores still looked plausible (R = 0.8889) | **Phantom grading**: `reset` clears `raw/` but not sandboxes, so dead agent runs were graded against *stale deliverables* left by earlier experiments |
 
-Cost: **$0.00** (OpenRouter free-tier model).
+The maintainer's fifth pattern page (`trace-harness-launch-failure`) described
+the zero-step sessions and the stale-grading trap — the framework diagnosed
+its own bug through the mechanism it was built to run.
+
+**Fixes (committed):**
+1. `--model`/`--provider` now **patch the isolated profile's default model**
+   (and strip the broken `moa` fallback) instead of relying on `-m` — the
+   default-model path is the one that's proven to work for any provider.
+2. **Fresh sandbox per rollout**: `materialize(force=True)` now deletes
+   anything not in the task spec, so stale deliverables can never be graded.
+3. Zero-tool-call sessions emit an explicit ⚠ warning.
+
+Regression tests added for all three.
+
+## Run 5 — gemini-2.5-flash-lite (free, OpenRouter), 8 turns — *the acceptance run*
+
+The paper's headline scenario, done right this time: a small model that
+fails at S₀ and should benefit from evolved skills. Tool use verified
+working before launch (`echo TOOL-OK` through the isolated profile).
 
 ## Bugs found & fixed during these runs
 
@@ -78,6 +96,11 @@ Cost: **$0.00** (OpenRouter free-tier model).
    not to write. Now 60 turns with "write early" guidance.
 5. **CI-readiness** — `bootstrap_profile` now skips `hermes skills opt-out`
    when the hermes binary is absent (test suite runs in plain CI).
+6. **Phantom grading (the big one)** — dead agent runs were scored against
+   stale sandbox deliverables from earlier experiments. Fixed with fresh
+   sandboxes per rollout + explicit zero-tool-call warnings (see Run 4).
+7. **Broken `-m` routing for unconfigured providers** — replaced with
+   isolated-profile default-model patching (see Run 4).
 
 ## How we compare to other implementations
 
