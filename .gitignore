@@ -7,3 +7,4 @@ dist/
 build/
 site/
 .DS_Store
+.env
