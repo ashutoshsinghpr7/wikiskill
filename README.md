@@ -137,7 +137,7 @@ We audited the three repos that appeared alongside the paper (see [docs/RUNS.md]
 
 ## Agent backends
 
-The loop runs on any supported agent CLI — the raw/wikitask layers are
+The loop runs on any supported agent CLI — the raw/wiki/skill layers are
 backend-agnostic ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill-hermes/issues/13)).
 
 | Backend | Pin a workspace | Notes |
