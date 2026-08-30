@@ -242,16 +242,19 @@ def test_evolve_switch_backend_bootstraps_profile(tmp_path, monkeypatch):
     """Regression (adversarial review): `evolve --backend claude` on an
     existing workspace must bootstrap the claude profile (credentials,
     config, skills dir) — otherwise every rollout fails auth and scores 0.0."""
-    from wikiskill import cli
+    from wikiskill import cli, harness, tasks as tasks_mod
+    from wikiskill import bench as bench_mod
     ws = _mkws(tmp_path)
+    harness.init_workspace(ws)
+    tasks_mod.save(ws, bench_mod.generate(42))
     calls = []
     monkeypatch.setattr(cli.agents, "bootstrap_profile",
                         lambda *a, **k: calls.append("boot"))
     monkeypatch.setattr(cli.harness, "evolve",
                         lambda *a, **k: {"baseline": 1.0, "r_best": 1.0})
-    rc = cli.main(["evolve", "--ws", ws, "--backend", "claude", "--dry-run"])
+    rc = cli.main(["evolve", "dummy", "--ws", ws, "--backend", "claude", "--dry-run"])
     assert rc == 0 and calls == [], "dry-run must not bootstrap (side effects)"
-    rc = cli.main(["evolve", "--ws", ws, "--backend", "claude"])
+    rc = cli.main(["evolve", "dummy", "--ws", ws, "--backend", "claude"])
     assert rc == 0 and calls == ["boot"], "real evolve must bootstrap the profile"
 
 
