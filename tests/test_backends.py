@@ -249,9 +249,9 @@ def test_evolve_switch_backend_bootstraps_profile(tmp_path, monkeypatch):
                         lambda *a, **k: calls.append("boot"))
     monkeypatch.setattr(cli.harness, "evolve",
                         lambda *a, **k: {"baseline": 1.0, "r_best": 1.0})
-    rc = cli.main(["evolve", ws, "--backend", "claude", "--dry-run"])
+    rc = cli.main(["evolve", "--ws", ws, "--backend", "claude", "--dry-run"])
     assert rc == 0 and calls == [], "dry-run must not bootstrap (side effects)"
-    rc = cli.main(["evolve", ws, "--backend", "claude"])
+    rc = cli.main(["evolve", "--ws", ws, "--backend", "claude"])
     assert rc == 0 and calls == ["boot"], "real evolve must bootstrap the profile"
 
 
