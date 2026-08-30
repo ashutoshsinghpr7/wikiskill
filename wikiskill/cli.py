@@ -6,7 +6,7 @@ import argparse
 import os
 import sys
 
-from . import agents, bench, gating, harness, tasks as tasks_mod, traces
+from . import agents, bench, compare, gating, harness, tasks as tasks_mod, traces
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_WS_ROOT = os.path.join(REPO_ROOT, "workspaces")
@@ -89,6 +89,21 @@ def cmd_gate(args) -> int:
         for r in g["results"]:
             print(f"  {r['id']}: {r['score']}")
         print(f"mean R: {g['mean']}")
+    return 0
+
+
+def cmd_compare(args) -> int:
+    root = DEFAULT_WS_ROOT
+    ws_a = args.ws_a if os.path.isdir(args.ws_a) else os.path.join(root, args.ws_a)
+    ws_b = args.ws_b if os.path.isdir(args.ws_b) else os.path.join(root, args.ws_b)
+    for p, name in ((ws_a, "ws_a"), (ws_b, "ws_b")):
+        if not os.path.isdir(p):
+            print(f"workspace not found: {name} -> {p}")
+            return 1
+    rep = compare.run_comparison(
+        ws_a, ws_b, iters=args.iters, dry_run=args.dry_run,
+        max_turns=args.max_turns)
+    print(compare.format_report(rep))
     return 0
 
 
@@ -185,6 +200,15 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--model")
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=cmd_gate)
+
+    sp = sub.add_parser("compare", help="paired statistical comparison of two workspaces")
+    sp.add_argument("ws_a")
+    sp.add_argument("ws_b")
+    sp.add_argument("--iters", type=int, default=3,
+                    help="runs per workspace (more = tighter test)")
+    sp.add_argument("--max-turns", type=int, default=None)
+    sp.add_argument("--dry-run", action="store_true")
+    sp.set_defaults(fn=cmd_compare)
 
     sp = sub.add_parser("run-task", help="single inference rollout")
     add_ws(sp); sp.add_argument("task_id")
