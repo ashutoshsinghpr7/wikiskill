@@ -1,7 +1,7 @@
 site_name: WikiSkill for Hermes
 site_description: Self-evolving agent skills via a persistent knowledge wiki — a faithful implementation of arXiv:2608.27454 for Hermes Agent.
-site_url: https://ashutoshsinghpr7.github.io/wikiskill-hermes/
-repo_url: https://github.com/ashutoshsinghpr7/wikiskill-hermes
+site_url: https://ashutoshsinghpr7.github.io/wikiskill/
+repo_url: https://github.com/ashutoshsinghpr7/wikiskill
 edit_uri: blob/main/docs/
 
 theme:
@@ -37,4 +37,4 @@ nav:
   - Run Log: RUNS.md
   - Comparing runs: COMPARING.md
   - Overnight evolution: CRON.md
-  - GitHub: https://github.com/ashutoshsinghpr7/wikiskill-hermes
+  - GitHub: https://github.com/ashutoshsinghpr7/wikiskill

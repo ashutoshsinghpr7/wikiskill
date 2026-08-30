@@ -30,4 +30,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         # no `password` — the action exchanges the OIDC id-token for a
         # short-lived PyPI token. Requires the publisher registered on PyPI:
-        # owner ashutoshsinghpr7 / repo wikiskill-hermes / workflow release.yml
+        # owner ashutoshsinghpr7 / repo wikiskill / workflow release.yml

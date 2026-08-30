@@ -43,4 +43,4 @@ wikiskill evolve demo --iters 1 --model google/gemini-2.5-flash-lite --provider 
 wikiskill status demo
 ```
 
-Runs cost ≈ $0.09/iteration on free-tier models. See the [full README](https://github.com/ashutoshsinghpr7/wikiskill-hermes#readme) for the complete guide, CLI reference, and design decisions.
+Runs cost ≈ $0.09/iteration on free-tier models. See the [full README](https://github.com/ashutoshsinghpr7/wikiskill#readme) for the complete guide, CLI reference, and design decisions.

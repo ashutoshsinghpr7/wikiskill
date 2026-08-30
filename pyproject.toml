@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "wikiskill-hermes"
+name = "wikiskill"
 version = "0.1.1"
 description = "WikiSkill (arXiv:2608.27454) for Hermes Agent — self-evolving agent skills via a persistent knowledge wiki"
 readme = "README.md"
@@ -31,8 +31,8 @@ dependencies = []
 wikiskill = "wikiskill.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/ashutoshsinghpr7/wikiskill-hermes"
-Repository = "https://github.com/ashutoshsinghpr7/wikiskill-hermes"
+Homepage = "https://github.com/ashutoshsinghpr7/wikiskill"
+Repository = "https://github.com/ashutoshsinghpr7/wikiskill"
 arXiv = "https://arxiv.org/abs/2608.27454"
 
 [tool.setuptools]

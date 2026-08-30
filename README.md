@@ -1,14 +1,14 @@
-# 🧠 WikiSkill for Hermes
+# 🧠 WikiSkill
 
 **Compile agent experience into a persistent wiki — and let skills evolve themselves.**
 
-> 📚 **Docs site**: [ashutoshsinghpr7.github.io/wikiskill-hermes](https://ashutoshsinghpr7.github.io/wikiskill-hermes) · **arXiv**: [2608.27454](https://arxiv.org/abs/2608.27454)
+> 📚 **Docs site**: [ashutoshsinghpr7.github.io/wikiskill](https://ashutoshsinghpr7.github.io/wikiskill) · **arXiv**: [2608.27454](https://arxiv.org/abs/2608.27454)
 
-A faithful, production-minded implementation of **[WikiSkill: Compiling Agent Experience into Persistent Knowledge for Skill Evolution](https://arxiv.org/abs/2608.27454)** (arXiv:2608.27454, Google Research), built natively on **[Hermes Agent](https://hermes-agent.nousresearch.com/docs)** — your own agent becomes both the *student* and the *teacher*.
+A faithful, production-minded implementation of **[WikiSkill: Compiling Agent Experience into Persistent Knowledge for Skill Evolution](https://arxiv.org/abs/2608.27454)** (arXiv:2608.27454, Google Research). The loop is **agent-agnostic** — **Hermes Agent** is the reference backend (built natively), **Claude Code** ships in the box, and Codex/OpenCode are on the roadmap ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill/issues/13)). Your agent becomes both the *student* and the *teacher*.
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/ashutoshsinghpr7/wikiskill-hermes/ci.yml?label=CI)](https://github.com/ashutoshsinghpr7/wikiskill-hermes/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/ashutoshsinghpr7/wikiskill/ci.yml?label=CI)](https://github.com/ashutoshsinghpr7/wikiskill/actions)
 [![arXiv](https://img.shields.io/badge/arXiv-2608.27454-red.svg)](https://arxiv.org/abs/2608.27454)
 
 ---
@@ -139,7 +139,7 @@ We audited the three repos that appeared alongside the paper (see [docs/RUNS.md]
 ## Agent backends
 
 The loop runs on any supported agent CLI — the raw/wiki/skill layers are
-backend-agnostic ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill-hermes/issues/13)).
+backend-agnostic ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill/issues/13)).
 
 | Backend | Pin a workspace | Notes |
 |---|---|---|
