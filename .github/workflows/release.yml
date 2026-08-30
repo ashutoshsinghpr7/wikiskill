@@ -7,12 +7,11 @@ on:
 
 permissions:
   contents: write
+  id-token: write  # OIDC for PyPI trusted publishing (no API token needed)
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
-    env:
-      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -27,8 +26,8 @@ jobs:
         with:
           generate_release_notes: true
           files: dist/*
-      - name: Publish to PyPI (when PYPI_TOKEN is configured)
-        if: env.PYPI_TOKEN != ''
+      - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ env.PYPI_TOKEN }}
+        # no `password` — the action exchanges the OIDC id-token for a
+        # short-lived PyPI token. Requires the publisher registered on PyPI:
+        # owner ashutoshsinghpr7 / repo wikiskill-hermes / workflow release.yml
