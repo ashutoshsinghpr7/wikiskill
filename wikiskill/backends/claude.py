@@ -101,7 +101,25 @@ def set_active_skills(ws: str, include_framework: bool = False) -> None:
 
 
 def patch_model(ws: str, model: str, provider: str | None = None) -> None:
-    """No-op: Claude selects models via --model at run time."""
+    """Store the model for run-time use (Claude selects models via --model).
+
+    Hermes patches its profile config; claude keeps the pinned model in the
+    isolated profile so `evolve --model` works identically across backends.
+    """
+    os.makedirs(profile_dir(ws), exist_ok=True)
+    with open(os.path.join(profile_dir(ws), "model.txt"), "w", encoding="utf-8") as f:
+        f.write(model)
+
+
+def _resolved_model(ws: str, model: str | None) -> str | None:
+    if model:
+        return model
+    p = os.path.join(profile_dir(ws), "model.txt")
+    if os.path.exists(p):
+        with open(p, encoding="utf-8") as f:
+            m = f.read().strip()
+        if m:
+            return m
     return None
 
 
@@ -131,6 +149,7 @@ def run(ws: str, prompt: str, *, tag: str, toolsets: str = DEFAULT_TOOLSETS,
            "--max-turns", str(max_turns),
            "--permission-mode", "acceptEdits",
            "--allowedTools", _allowed_tools(toolsets)]
+    model = _resolved_model(ws, model)
     if model:
         cmd += ["--model", model]
     budget = max(0.05, run_budget / 100.0)

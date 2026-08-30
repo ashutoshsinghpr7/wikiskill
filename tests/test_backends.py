@@ -93,6 +93,22 @@ def test_claude_backend_dry_run_command(tmp_path):
     assert res.cmd[res.cmd.index("--max-budget-usd") + 1] == "3.00"
 
 
+def test_claude_patch_model_flows_into_run(tmp_path):
+    """Regression: `evolve --backend claude --model X` must reach the CLI —
+    the stored model is applied when the runner gets no explicit model."""
+    ws = _mkws(tmp_path)
+    ClaudeBackend().patch_model(ws, "claude-3-5-sonnet", "anthropic")
+    res = ClaudeBackend().run(ws, "hi", tag="t1", dry_run=True)
+    assert res.cmd[res.cmd.index("--model") + 1] == "claude-3-5-sonnet"
+    # explicit --model at run time wins over the stored one
+    res2 = ClaudeBackend().run(ws, "hi", tag="t2", dry_run=True, model="other")
+    assert res2.cmd[res2.cmd.index("--model") + 1] == "other"
+    # nothing stored -> no --model flag at all
+    ws2 = _mkws(tmp_path, "ws2")
+    res3 = ClaudeBackend().run(ws2, "hi", tag="t3", dry_run=True)
+    assert "--model" not in res3.cmd
+
+
 def test_claude_run_uses_isolated_config_and_pins_cwd(tmp_path, monkeypatch):
     ws = _mkws(tmp_path)
     calls = {}
