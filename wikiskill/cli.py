@@ -6,7 +6,7 @@ import argparse
 import os
 import sys
 
-from . import agents, bench, compare, gating, harness, tasks as tasks_mod, traces
+from . import agents, bench, compare, gating, harness, tasks as tasks_mod, traces, transfer
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_WS_ROOT = os.path.join(REPO_ROOT, "workspaces")
@@ -104,6 +104,19 @@ def cmd_compare(args) -> int:
         ws_a, ws_b, iters=args.iters, dry_run=args.dry_run,
         max_turns=args.max_turns)
     print(compare.format_report(rep))
+    return 0
+
+
+def cmd_transfer(args) -> int:
+    root = DEFAULT_WS_ROOT
+    src = args.src if os.path.isdir(args.src) else os.path.join(root, args.src)
+    dst = args.dst if os.path.isdir(args.dst) else os.path.join(root, args.dst)
+    for p, name in ((src, "src"), (dst, "dst")):
+        if not os.path.isdir(p):
+            print(f"workspace not found: {name} -> {p}")
+            return 1
+    m = transfer.transfer_skills(src, dst, force=args.force)
+    print(transfer.format_report(m))
     return 0
 
 
@@ -209,6 +222,12 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--max-turns", type=int, default=None)
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=cmd_compare)
+
+    sp = sub.add_parser("transfer", help="copy one workspace's active skills into another")
+    sp.add_argument("src")
+    sp.add_argument("dst")
+    sp.add_argument("--force", action="store_true", help="overwrite same-named skills")
+    sp.set_defaults(fn=cmd_transfer)
 
     sp = sub.add_parser("run-task", help="single inference rollout")
     add_ws(sp); sp.add_argument("task_id")
