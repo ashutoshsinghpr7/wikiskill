@@ -89,7 +89,7 @@ workspaces/demo/
 | `wikiskill status` | Workspace state: scores, skills, wiki, history |
 | `wikiskill evolve --iters N [--model M] [--provider P] [--max-turns N] [--no-early-stop]` | The full loop (`--model`/`--provider` patch the isolated profile's default model, e.g. `google/gemini-2.5-flash-lite` + `openrouter`) |
 | `wikiskill run-task <id>` | Single inference rollout (debug) |
-| `wikiskill maintain` / `wikiskill propose` | Run those agent turns manually |
+| `wikiskill compare <wsA> <wsB> [--iters N]` | Paired statistical comparison: per-task win/loss/tie + two-sided exact-binomial p-value (answers "did the skill actually help?" — see [docs/COMPARING.md](docs/COMPARING.md)) |
 
 ## Bring your own tasks
 
