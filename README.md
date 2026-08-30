@@ -86,7 +86,7 @@ workspaces/demo/
 
 | Command | What it does |
 |---|---|
-| `wikiskill init <domain>` | Create workspace + demo bench |
+| `wikiskill init <domain> [--backend claude]` | Create workspace + demo bench (pins the agent backend) |
 | `wikiskill bench --reset` | Regenerate tasks (deterministic, seed=42) |
 | `wikiskill status` | Workspace state: scores, skills, wiki, history |
 | `wikiskill evolve --iters N [--model M] [--provider P] [--max-turns N] [--no-early-stop]` | The full loop (`--model`/`--provider` patch the isolated profile's default model, e.g. `google/gemini-2.5-flash-lite` + `openrouter`) |
@@ -134,6 +134,20 @@ The gating mechanism has caught both a neutral and a *harmful* proposal live. Fu
 ## How this compares to other community implementations
 
 We audited the three repos that appeared alongside the paper (see [docs/RUNS.md](docs/RUNS.md)). This is the only one that: runs on a real agent stack (Hermes), gates skills through a fully isolated profile, ships verbatim Appendix E prompts, and has a live-verified end-to-end loop (maintainer → proposer → gate → rollback).
+
+## Agent backends
+
+The loop runs on any supported agent CLI — the raw/wikitask layers are
+backend-agnostic ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill-hermes/issues/13)).
+
+| Backend | Pin a workspace | Notes |
+|---|---|---|
+| `hermes` (default) | `wikiskill init demo --backend hermes` | reference implementation; isolated `HERMES_HOME` per workspace |
+| `claude` | `wikiskill init demo --backend claude` | Claude Code 2.x (`claude -p`), isolated `CLAUDE_CONFIG_DIR`, transcripts normalized from the stream-json output; `claude auth login` required once |
+
+Each workspace pins its backend in `workspaces/<domain>/workspace.json`; switch
+anytime with `wikiskill evolve <domain> --backend claude`. Skills evolved on
+one backend transfer to another via `wikiskill transfer` (same SKILL.md format).
 
 ## Roadmap
 

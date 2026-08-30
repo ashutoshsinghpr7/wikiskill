@@ -20,6 +20,7 @@ import random
 import shutil
 
 from . import agents, gating, prompts, tasks as tasks_mod, traces, wiki
+from .backends.hermes import MAINTAINER_TOOLSETS, PROPOSER_TOOLSETS
 
 FRAMEWORK_SKILLS = ("wikiskill-maintainer", "wikiskill-proposer")
 
@@ -66,7 +67,7 @@ def maintain_step(ws: str, k: int, sampled: list[dict], runner=agents.run_agent,
                   dry_run: bool = False) -> dict:
     prompt = prompts.maintainer_prompt(ws, k, sampled)
     return runner(ws, prompt, tag=f"maintain-{k:02d}",
-                  toolsets=agents.MAINTAINER_TOOLSETS, include_framework=True,
+                  toolsets=MAINTAINER_TOOLSETS, include_framework=True,
                   dry_run=dry_run, max_turns=60, run_budget=1500)
 
 
@@ -74,7 +75,7 @@ def propose_step(ws: str, k: int, train_results: list[dict], runner=agents.run_a
                  dry_run: bool = False) -> tuple[dict | None, dict]:
     prompt = prompts.proposer_prompt(ws, k, train_results)
     res = runner(ws, prompt, tag=f"propose-{k:02d}",
-                 toolsets=agents.PROPOSER_TOOLSETS, include_framework=True,
+                 toolsets=PROPOSER_TOOLSETS, include_framework=True,
                  dry_run=dry_run, max_turns=60, run_budget=1800)
     ppath = os.path.join(ws, "runs", "proposals", f"iter-{k:02d}.json")
     if dry_run or not os.path.exists(ppath):

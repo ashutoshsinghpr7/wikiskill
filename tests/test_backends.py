@@ -1,0 +1,189 @@
+"""Backend protocol tests (issue #13): registry, per-backend command
+construction, transcript normalization, and the agents.py facade dispatch."""
+
+import json
+import os
+import subprocess
+
+from wikiskill import agents, backends
+from wikiskill.backends.claude import ClaudeBackend
+from wikiskill.backends.hermes import HermesBackend
+from wikiskill.backends import transcript
+
+
+def _mkws(tmp_path, name="ws") -> str:
+    ws = str(tmp_path / name)
+    os.makedirs(ws, exist_ok=True)
+    return ws
+
+
+# ---------------------------------------------------------------- registry
+
+def test_default_backend_is_hermes_for_legacy_workspaces(tmp_path):
+    ws = _mkws(tmp_path)
+    assert backends.read_backend(ws) == "hermes"
+    assert backends.resolve(ws).name == "hermes"
+    assert not os.path.exists(backends.workspace_file(ws))  # nothing written
+
+
+def test_write_and_resolve_backend(tmp_path):
+    ws = _mkws(tmp_path)
+    backends.write_backend(ws, "claude")
+    assert backends.read_backend(ws) == "claude"
+    assert backends.resolve(ws).name == "claude"
+    assert backends.workspace_file(ws).endswith("workspace.json")
+    try:
+        backends.write_backend(ws, "nope")
+        assert False, "unknown backend must raise"
+    except ValueError:
+        pass
+
+
+# ---------------------------------------------------------------- hermes
+
+def test_hermes_backend_dry_run_command(tmp_path):
+    res = HermesBackend().run(_mkws(tmp_path), "hi", tag="t1", dry_run=True,
+                              model="x/y", workdir="/sandbox", max_turns=8)
+    assert res.dry_run and res.cmd[0] == "hermes"
+    for flag in ("--query-file", "-Q", "--oneshot", "-t", "--max-turns",
+                 "--run-budget", "-m", "--in"):
+        assert flag in res.cmd
+    assert res.cmd[res.cmd.index("--max-turns") + 1] == "8"
+    assert res.cmd[res.cmd.index("-m") + 1] == "x/y"
+    assert res.cmd[res.cmd.index("--in") + 1] == "/sandbox"
+
+
+# ---------------------------------------------------------------- claude
+
+def test_claude_backend_dry_run_command(tmp_path):
+    res = ClaudeBackend().run(_mkws(tmp_path), "hi", tag="t1", dry_run=True,
+                              model="sonnet", workdir="/sandbox", max_turns=8)
+    assert res.dry_run and res.cmd[0] == "claude"
+    for flag in ("-p", "--output-format", "stream-json", "--verbose",
+                 "--max-turns", "--permission-mode", "acceptEdits",
+                 "--allowedTools", "--model", "--max-budget-usd"):
+        assert flag in res.cmd, flag
+    assert res.cmd[res.cmd.index("--max-turns") + 1] == "8"
+    assert res.cmd[res.cmd.index("--model") + 1] == "sonnet"
+    # terminal,file,code_execution -> Bash,Read,Write,Edit (deduped)
+    tools = res.cmd[res.cmd.index("--allowedTools") + 1]
+    assert tools == "Bash,Read,Write,Edit"
+    # run_budget 300 (hermes cents-ish) -> $3.00 max-budget-usd
+    assert res.cmd[res.cmd.index("--max-budget-usd") + 1] == "3.00"
+
+
+def test_claude_run_uses_isolated_config_and_pins_cwd(tmp_path, monkeypatch):
+    ws = _mkws(tmp_path)
+    calls = {}
+
+    def fake_run(cmd, **kw):
+        calls["cmd"] = cmd
+        calls["env"] = kw.get("env")
+        calls["cwd"] = kw.get("cwd")
+        calls["input"] = kw.get("input")
+        # emulate a tiny stream-json transcript: one user, one assistant w/ tool_use
+        out = "\n".join([
+            json.dumps({"type": "user", "message": {"role": "user"}}),
+            json.dumps({"type": "assistant", "message": {
+                "content": [{"type": "tool_use", "name": "Bash", "id": "t1"},
+                            {"type": "text", "text": "done"}]}}),
+            json.dumps({"type": "result", "subtype": "success",
+                        "session_id": "abc123", "num_turns": 2}),
+        ])
+        open(kw["stdout"].name, "w", encoding="utf-8").write(out)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    res = ClaudeBackend().run(ws, "the prompt", tag="t1", workdir="/sandbox")
+    assert calls["env"]["CLAUDE_CONFIG_DIR"] == os.path.join(ws, ".claude-home")
+    assert calls["cwd"] == "/sandbox"
+    assert calls["input"] == "the prompt"
+    # transcript normalized with tool_call_count for the gating check
+    assert res.session_file and os.path.exists(res.session_file)
+    header = json.loads(open(res.session_file, encoding="utf-8").readline())
+    assert header["tool_call_count"] == 1
+    assert header["message_count"] == 2
+    assert header["session_id"] == "abc123"
+
+
+def test_claude_bootstrap_copies_config(tmp_path):
+    real = tmp_path / "real-claude"
+    real.mkdir()
+    (real / "settings.json").write_text("{}")
+    (real / ".credentials.json").write_text("{}")
+    ws = _mkws(tmp_path)
+    ClaudeBackend().bootstrap_profile(ws, real=str(real))
+    prof = os.path.join(ws, ".claude-home")
+    assert os.path.exists(os.path.join(prof, "settings.json"))
+    assert os.path.exists(os.path.join(prof, ".credentials.json"))
+    assert os.path.isdir(os.path.join(prof, "skills"))
+    assert os.path.isdir(os.path.join(prof, "projects"))
+
+
+# ---------------------------------------------------------------- transcript
+
+def test_normalize_claude_stream_counts_tool_calls(tmp_path):
+    src = tmp_path / "raw.jsonl"
+    raw = [
+        {"type": "user", "message": {"role": "user"}},
+        {"type": "assistant", "message": {"content": [
+            {"type": "text", "text": "thinking"},
+            {"type": "tool_use", "name": "Read", "id": "r1"}]}},
+        {"type": "user", "message": {"role": "user"}},
+        {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Bash", "id": "b1"},
+            {"type": "tool_use", "name": "Edit", "id": "e1"}]}},
+        {"type": "result", "session_id": "sess-9"},
+        "garbage line that is not json",
+    ]
+    src.write_text("\n".join(json.dumps(x) for x in raw))
+    dest = str(tmp_path / "session.jsonl")
+    transcript.normalize_claude_stream(str(src), dest)
+    lines = open(dest, encoding="utf-8").read().splitlines()
+    header = json.loads(lines[0])
+    assert header["tool_call_count"] == 3
+    assert header["message_count"] == 4
+    assert header["session_id"] == "sess-9"
+    # raw events preserved after the header; corrupt line skipped
+    assert len(lines) == 6  # header + 5 events (garbage dropped)
+
+
+def test_normalized_claude_transcript_fed_to_gating_check(tmp_path):
+    from wikiskill import gating
+    src = tmp_path / "raw.jsonl"
+    src.write_text("\n".join([
+        json.dumps({"type": "user", "message": {"role": "user"}}),
+        json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "text", "text": "no tools"}]}}),
+    ]))
+    dest = str(tmp_path / "session.jsonl")
+    transcript.normalize_claude_stream(str(src), dest)
+    assert gating._session_had_no_tool_calls(dest) is True  # launch failure
+    src2 = tmp_path / "raw2.jsonl"
+    src2.write_text("\n".join([
+        json.dumps({"type": "user", "message": {"role": "user"}}),
+        json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Bash", "id": "b"}]}}),
+    ]))
+    dest2 = str(tmp_path / "session2.jsonl")
+    transcript.normalize_claude_stream(str(src2), dest2)
+    assert gating._session_had_no_tool_calls(dest2) is False
+
+
+# ---------------------------------------------------------------- facade
+
+def test_facade_dispatches_to_workspace_backend(tmp_path):
+    ws = _mkws(tmp_path)
+    res = agents.run_agent(ws, "hi", tag="t1", dry_run=True)
+    assert res["cmd"][0] == "hermes"  # legacy default
+    backends.write_backend(ws, "claude")
+    res = agents.run_agent(ws, "hi", tag="t1", dry_run=True)
+    assert res["cmd"][0] == "claude"
+    assert res["dry_run"] is True and "cmd" in res
+
+
+def test_facade_run_agent_dict_shape_matches_gating_contract(tmp_path):
+    ws = _mkws(tmp_path)
+    res = agents.run_agent(ws, "hi", tag="t1", dry_run=True)
+    for key in ("cmd", "exit_code", "duration_s", "stdout_path", "session_file"):
+        assert key in res

@@ -1,0 +1,49 @@
+"""Agent backend registry (issue #13).
+``wikiskill init --backend`` / ``wikiskill evolve --backend``). Workspaces
+created before backends existed have no such file and resolve to Hermes —
+full backward compatibility.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+
+from .base import AgentBackend
+from .claude import ClaudeBackend
+from .hermes import HermesBackend
+
+BACKENDS: dict[str, AgentBackend] = {
+    "hermes": HermesBackend(),
+    "claude": ClaudeBackend(),
+}
+DEFAULT_BACKEND = "hermes"
+
+
+def workspace_file(ws: str) -> str:
+    return os.path.join(ws, "workspace.json")
+
+
+def read_backend(ws: str) -> str:
+    try:
+        with open(workspace_file(ws), encoding="utf-8") as f:
+            return json.load(f).get("backend", DEFAULT_BACKEND)
+    except (OSError, ValueError):
+        return DEFAULT_BACKEND
+
+
+def write_backend(ws: str, name: str) -> None:
+    if name not in BACKENDS:
+        raise ValueError(f"unknown backend {name!r}; available: {sorted(BACKENDS)}")
+    with open(workspace_file(ws), "w", encoding="utf-8") as f:
+        json.dump({"backend": name}, f, indent=2)
+
+
+def get_backend(name: str) -> AgentBackend:
+    if name not in BACKENDS:
+        raise ValueError(f"unknown backend {name!r}; available: {sorted(BACKENDS)}")
+    return BACKENDS[name]
+
+
+def resolve(ws: str) -> AgentBackend:
+    return BACKENDS[read_backend(ws)]
