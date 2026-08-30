@@ -106,6 +106,35 @@ likely needs a multi-iteration run where the proposer builds on the wiki's
 accumulated patterns (the paper's key ablation) or a task set with headroom
 for a small model to grow into. That's the roadmap.
 
+## Run 6 — compounding experiment (issue #5): 3 iterations, gemini-2.5-flash-lite — *an honest negative result*
+
+The multi-iteration accumulation run: 3 full Algorithm-1 iterations on a
+genuinely weak free-tier model (baseline 0.4444) to test whether the wiki
+grows and skills compound.
+
+| Phase | Result |
+|---|---|
+| Baseline gate (9 val, S₀=∅) | **R = 0.4444** (5/9) — weakest S₀ yet |
+| Train rollouts (13 tasks × 3 iters) | iter-03 train **0.2308**; **6/48 sessions launch-failed** (0 tool calls — detected, scored 0.0 from fresh sandbox) |
+| Wiki maintenance (8 traces sampled / iter) | only iter-03 distilled a pattern: `successful-empty-search` (sampled traces showed correct empty-search behavior, not failures) |
+| Skill proposal | iter-03: **`no_action`** — proposer declined; nothing to gate |
+| Validation gates | none ran (no candidate skill) |
+| Final state | r_best = **0.4444** = baseline — zero skills accepted, zero admitted |
+
+**Why nothing happened:** with ~12% launch failures and weak reasoning, the
+raw layer starves the wiki — most sampled traces were empty/failed or
+successful-but-trivial, so the maintainer found no failure pattern to distill
+and the proposer correctly declined (`no_action`). The mechanism worked as
+designed — no hallucinated skills, no harmful admissions, clean state — but
+accumulation clearly needs a stronger model or healthier sessions.
+
+Cost: 48 sessions, ~$0.25 at gemini-lite rates.
+
+**Status of the acceptance question:** still open. Every live gate across
+Runs 5–6 was a rejection or a no-op. The paper's accumulation claim is
+documented as not-yet-demonstrated on free-tier models; the next candidate is
+a stronger model or the claude/codex backends (issue #13).
+
 ## Bugs found & fixed during these runs
 
 1. **`--in` doesn't pin the agent's CWD** — inference agents guessed the wrong

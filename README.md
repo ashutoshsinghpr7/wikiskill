@@ -121,6 +121,7 @@ Honest numbers from real agent runs on the bundled bench:
 | deepseek-v4-flash, forced | 1.0 | maintainer distilled **4 pattern pages** (incl. `execute_code` blocked in sandbox, ripgrep binary misses); proposer created `exact-match-sandbox-task` → R_val=0.8889 (skill *hurt*) → **rejected** |
 | gemma-3-4b (free, OpenRouter) | — | **invalid run, thrown out** — dead agent sessions were phantom-graded against stale sandboxes. The maintainer's pattern page caught the framework's own bug; fixed + regression-tested (see [docs/RUNS.md](docs/RUNS.md) Run 4) |
 | **gemini-2.5-flash-lite (free, OpenRouter), 8 turns** | **0.6667** (real) | small model fails at S₀ → maintainer distilled 5 patterns → proposer created `find-secret` → **R_val=0.4444, the skill hurt (2 regressions) → rejected**. Full loop live on a genuinely weak model, ~$0.09/iteration |
+| gemini-2.5-flash-lite, 3 iterations (issue #5) | **0.4444** (real) | compounding run: train as low as 0.2308, 6/48 launch failures (detected + honest 0.0s), maintainer distilled 1 pattern, proposer **declined (`no_action`)** — nothing to gate, r_best preserved. Honest negative: accumulation needs a stronger model (see [docs/RUNS.md](docs/RUNS.md) Run 6) |
 
 The gating mechanism has caught both a neutral and a *harmful* proposal live. Full logs in [docs/RUNS.md](docs/RUNS.md).
 
