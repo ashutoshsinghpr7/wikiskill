@@ -1,0 +1,40 @@
+site_name: WikiSkill for Hermes
+site_description: Self-evolving agent skills via a persistent knowledge wiki — a faithful implementation of arXiv:2608.27454 for Hermes Agent.
+site_url: https://ashutoshsinghpr7.github.io/wikiskill-hermes/
+repo_url: https://github.com/ashutoshsinghpr7/wikiskill-hermes
+edit_uri: blob/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.top
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Run Log: RUNS.md
+  - Comparing runs: COMPARING.md
+  - Overnight evolution: CRON.md
+  - GitHub: https://github.com/ashutoshsinghpr7/wikiskill-hermes

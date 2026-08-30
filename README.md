@@ -2,6 +2,8 @@
 
 **Compile agent experience into a persistent wiki — and let skills evolve themselves.**
 
+> 📚 **Docs site**: [ashutoshsinghpr7.github.io/wikiskill-hermes](https://ashutoshsinghpr7.github.io/wikiskill-hermes) · **arXiv**: [2608.27454](https://arxiv.org/abs/2608.27454)
+
 A faithful, production-minded implementation of **[WikiSkill: Compiling Agent Experience into Persistent Knowledge for Skill Evolution](https://arxiv.org/abs/2608.27454)** (arXiv:2608.27454, Google Research), built natively on **[Hermes Agent](https://hermes-agent.nousresearch.com/docs)** — your own agent becomes both the *student* and the *teacher*.
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org)
