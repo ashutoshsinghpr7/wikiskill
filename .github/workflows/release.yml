@@ -21,6 +21,11 @@ jobs:
         run: |
           pip install -q build
           python -m build
+      - name: Smoke-test the wheel before publishing
+        run: |
+          python -m venv /tmp/wheel-check
+          /tmp/wheel-check/bin/pip install -q dist/*.whl
+          /tmp/wheel-check/bin/wikiskill --help >/dev/null && echo "WHEEL SMOKE OK"
       - name: Publish release with artifacts
         uses: softprops/action-gh-release@v2
         with:

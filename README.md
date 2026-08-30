@@ -8,6 +8,7 @@ A faithful, production-minded implementation of **[WikiSkill: Compiling Agent Ex
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/wikiskill?color=orange)](https://pypi.org/project/wikiskill/)
 [![CI](https://img.shields.io/github/actions/workflow/status/ashutoshsinghpr7/wikiskill/ci.yml?label=CI)](https://github.com/ashutoshsinghpr7/wikiskill/actions)
 [![arXiv](https://img.shields.io/badge/arXiv-2608.27454-red.svg)](https://arxiv.org/abs/2608.27454)
 
@@ -63,11 +64,13 @@ This is not a toy simulator. Every component is a **real Hermes agent turn**:
 ## Quickstart (60 seconds)
 
 ```bash
-pip install -e .          # installs the `wikiskill` CLI
-wikiskill init demo       # workspace + 22-task auto-graded bench (13 train / 9 val)
+pip install wikiskill        # from PyPI (wheel + sdist, Python ≥3.10)
+wikiskill init demo           # workspace + 22-task auto-graded bench (13 train / 9 val)
 wikiskill status
-wikiskill evolve --iters 3   # full Algorithm 1 loop with your default model
+wikiskill evolve --iters 3    # full Algorithm 1 loop with your default model
 ```
+
+Or from source: `pip install -e .` (installs the same `wikiskill` CLI).
 
 That's it. Each evolution workspace lives at `workspaces/<domain>/`:
 
@@ -152,11 +155,21 @@ one backend transfer to another via `wikiskill transfer` (same SKILL.md format).
 
 ## Roadmap
 
-- [ ] Multi-iteration compounding run (the paper's key ablation: wiki accumulation matters)
-- [ ] Skill *transfer* across models (paper: skills evolved by one model help another)
-- [ ] Real-task domains (your recurring workflows as graded task sets)
-- [ ] `compare` command for statistical run comparison
-- [ ] Cron-driven overnight evolution (`hermes cron`)
+**Done:**
+- [x] `compare` command — paired exact-binomial run comparison ([#6](https://github.com/ashutoshsinghpr7/wikiskill/pull/6))
+- [x] Skill *transfer* across workspaces/models ([#7](https://github.com/ashutoshsinghpr7/wikiskill/pull/7))
+- [x] Cron-driven overnight evolution (`hermes cron`, 01:00 IST nightly) + docs/CRON.md
+- [x] Multi-agent backends: Hermes (reference) + **Claude Code**, protocol ready for more ([#13](https://github.com/ashutoshsinghpr7/wikiskill/issues/13))
+- [x] GitHub Pages — custom animated docs site ([#18](https://github.com/ashutoshsinghpr7/wikiskill/pull/18))
+- [x] PyPI package `wikiskill` via **tokenless trusted publishing** ([#20](https://github.com/ashutoshsinghpr7/wikiskill/pull/20))
+- [x] Multi-iteration compounding run — honest negative documented (Run 6)
+
+**Planned:**
+- [ ] Codex backend ([#15](https://github.com/ashutoshsinghpr7/wikiskill/issues/15))
+- [ ] OpenCode backend ([#16](https://github.com/ashutoshsinghpr7/wikiskill/issues/16))
+- [ ] Cross-agent transfer demo — evolve on one agent, gate on another ([#17](https://github.com/ashutoshsinghpr7/wikiskill/issues/17))
+- [ ] A live *acceptance* gate (proposal beats baseline on a real model) — still the open scientific question (see Run 6)
+- [ ] Real-task domains — your recurring workflows as graded task packs ([#2](https://github.com/ashutoshsinghpr7/wikiskill/issues/2))
 
 ## License
 
