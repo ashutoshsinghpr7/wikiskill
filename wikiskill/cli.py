@@ -6,7 +6,7 @@ import argparse
 import os
 import sys
 
-from . import agents, bench, compare, gating, harness, tasks as tasks_mod, traces, transfer
+from . import agents, backends, bench, compare, gating, harness, tasks as tasks_mod, traces, transfer
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_WS_ROOT = os.path.join(REPO_ROOT, "workspaces")
@@ -23,6 +23,8 @@ def cmd_init(args) -> int:
     if os.path.exists(ws) and os.listdir(ws):
         print(f"workspace already exists: {ws}")
         return 1
+    if args.backend:
+        backends.write_backend(ws, args.backend)
     harness.init_workspace(ws)
     tasks = bench.generate(args.seed)
     tasks_mod.save(ws, tasks)
@@ -59,7 +61,7 @@ def cmd_status(args) -> int:
     print(f"state: baseline={state.get('baseline')} r_best={state.get('r_best')} "
           f"next_iter={state.get('next_iter')} iters_done={len(state.get('history', []))}")
     print(f"traces: {len(tr)} | active skills: {sorted(active) or ['∅ (S0)']} "
-          f"| wiki patterns: {len(patterns)}")
+          f"| wiki patterns: {len(patterns)} | backend: {agents.resolve(ws).name}")
     for h in state.get("history", []):
         print(f"  iter-{h['iter']:02d}: {h.get('proposal')} R_val={h.get('r_val')} "
               f"{'ACCEPT' if h.get('accepted') else 'reject'}")
@@ -71,6 +73,14 @@ def cmd_evolve(args) -> int:
     if not os.path.exists(tasks_mod.tasks_path(ws)):
         print(f"no workspace at {ws} (run `wikiskill init <domain>`)")
         return 1
+    if args.backend:
+        backends.write_backend(ws, args.backend)
+        print(f"[wikiskill] backend → {args.backend}")
+        if not args.dry_run:
+            # the switched-to backend needs its isolated profile (credentials,
+            # config, skills dir) before any rollout — init created it for
+            # fresh workspaces, but switching an existing one never did.
+            agents.bootstrap_profile(ws)
     state = harness.evolve(ws, iters=args.iters, model=args.model,
                            provider=args.provider, dry_run=args.dry_run,
                            verbose=True, max_turns=args.max_turns,
@@ -182,6 +192,8 @@ def main(argv: list[str] | None = None) -> int:
 
     sp = sub.add_parser("init", help="create a workspace with the demo bench")
     add_ws(sp); sp.add_argument("--seed", type=int, default=42)
+    sp.add_argument("--backend", choices=sorted(backends.BACKENDS), default=None,
+                    help="agent backend for this workspace (default: hermes)")
     sp.set_defaults(fn=cmd_init)
 
     sp = sub.add_parser("bench", help="(re)generate the demo bench")
@@ -198,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--model", help="patch the isolated profile's default model "
                                     "(e.g. google/gemini-2.5-flash-lite)")
     sp.add_argument("--provider", help="provider for --model (e.g. openrouter)")
+    sp.add_argument("--backend", choices=sorted(backends.BACKENDS), default=None,
+                    help="switch this workspace's agent backend before evolving")
     sp.add_argument("--max-turns", type=int, default=15,
                     help="per-task inference turn budget (tighter = harder)")
     sp.add_argument("--no-early-stop", action="store_true",
