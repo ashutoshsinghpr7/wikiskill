@@ -132,6 +132,7 @@ def evolve(ws: str, iters: int = 3, model: str | None = None,
         sampled = sample_traces(ws, k, train_results)
         log(f"iter {k}: wiki maintenance (sampled {len(sampled)} traces)")
         maintain_step(ws, k, sampled, runner=runner, dry_run=dry_run)
+        wiki.commit(ws, f"iter-{k:02d}: maintainer updates")
 
         log(f"iter {k}: skill proposal")
         proposal, _ = propose_step(ws, k, train_results, runner=runner, dry_run=dry_run)
@@ -169,6 +170,8 @@ def evolve(ws: str, iters: int = 3, model: str | None = None,
         wiki.append_log(
             ws, f"iter-{k:02d}: train={train_mean} propose={desc} R_val={r_val} "
                 f"{'ACCEPT' if accepted else 'reject'} (R_best={state['r_best']})")
+        wiki.commit(ws, f"iter-{k:02d}: gate outcome "
+                        f"({'accept' if accepted else 'reject'}, R_val={r_val})")
         log(f"iter {k}: R_val={r_val} → {'ACCEPTED' if accepted else 'REJECTED (rolled back)'} "
             f"(R_best={state['r_best']})")
 

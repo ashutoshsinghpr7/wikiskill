@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 
 from wikiskill import agents, bench, gating, harness, tasks as tasks_mod
 
@@ -266,3 +267,20 @@ def test_evolve_accepts_provider_kwarg():
     sig = inspect.signature(harness.evolve)
     assert "provider" in sig.parameters
     assert sig.parameters["provider"].default is None
+
+
+def test_wiki_gets_audit_trail_commits(tmp_path):
+    """Every maintainer update and gate outcome is committed to the wiki git
+    history — knowledge persists with a full audit trail."""
+    ws = build_ws(tmp_path)
+    val = val_ids(ws)
+    runner = FakeRunner(
+        val_pass={0: set(val[:2]), 1: set(val[:4])},
+        proposals={1: _proposal_create()},
+    )
+    harness.evolve(ws, iters=1, runner=runner, verbose=False)
+    log = subprocess.run(["git", "-C", os.path.join(ws, "wiki"), "log", "--oneline"],
+                         capture_output=True, text=True).stdout
+    assert "wiki skeleton" in log
+    assert "maintainer updates" in log
+    assert "gate outcome" in log

@@ -79,8 +79,32 @@ Regression tests added for all three.
 ## Run 5 — gemini-2.5-flash-lite (free, OpenRouter), 8 turns — *the acceptance run*
 
 The paper's headline scenario, done right this time: a small model that
-fails at S₀ and should benefit from evolved skills. Tool use verified
-working before launch (`echo TOOL-OK` through the isolated profile).
+fails at S₀. Tool use verified working before launch (`echo TOOL-OK` through
+the isolated profile). All sessions real (verified tool calls, no phantom
+grading).
+
+| Phase | Result |
+|---|---|
+| Baseline gate (9 val, S₀=∅) | **R = 0.6667** — `spec-format1-2`, `spec-format2-2`, `spec-format3-2` all fail (a genuinely weak model at S₀) |
+| Train rollouts (13 tasks) | **0.5385** (7/13) — real failure material for the maintainer |
+| Wiki maintenance | sampled 8 traces → patterns distilled; wiki grew to **5 pattern pages** (4 from the deepseek era + `trace-harness-launch-failure`) |
+| Skill proposal | `create find-secret` — derived from the `search-miss-binary` pattern (grep for a literal secret string, use `grep -a`) |
+| Validation gate (9 val, +skill) | **R = 0.4444** → **REJECTED** |
+
+**Why it was rejected — the money shot:** the skill *hurt*. Two val tasks
+regressed with it loaded: `extract-longest` 1.0 → 0.0 and `find-biggest`
+1.0 → 0.0 (its "search for the exact string" guidance misdirected the agent
+on tasks that need *comparing* files). The strict `R_val > R_best` gate
+caught a harmful proposal live, rolled the skill back, and the wiki (now with
+5 patterns + audit-trail commits) was retained.
+
+Cost: **$0.086** for the full iteration (31 real sessions).
+
+**Acceptance remains test-proven, not live-proven** — every live gate so far
+was a rejection (neutral, harmful, harmful). Getting a live *acceptance*
+likely needs a multi-iteration run where the proposer builds on the wiki's
+accumulated patterns (the paper's key ablation) or a task set with headroom
+for a small model to grow into. That's the roadmap.
 
 ## Bugs found & fixed during these runs
 

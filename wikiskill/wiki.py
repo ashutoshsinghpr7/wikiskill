@@ -15,10 +15,26 @@ def wiki_dir(ws: str) -> str:
     return os.path.join(ws, "wiki")
 
 
+def _git(w: str, *args: str) -> None:
+    subprocess.run(["git", "-c", "user.email=wikiskill@local", "-c", "user.name=wikiskill",
+                    *args], cwd=w, capture_output=True, text=True)
+
+
+def commit(ws: str, message: str) -> None:
+    """Audit-trail commit for the wiki (knowledge is never rolled back, but
+    every change is recorded — including who made it and when)."""
+    w = wiki_dir(ws)
+    if not os.path.isdir(os.path.join(w, ".git")):
+        subprocess.run(["git", "init", "-q"], cwd=w)
+    _git(w, "add", "-A")
+    _git(w, "commit", "-q", "--allow-empty", "-m", message)
+
+
 def ensure(ws: str) -> None:
     w = wiki_dir(ws)
     for d in ("", "patterns"):
         os.makedirs(os.path.join(w, d), exist_ok=True)
+    fresh = False
     for f, content in {
         "index.md": "# Pattern Index\n\n_No patterns yet._\n",
         "log.md": "# Evolution Log\n\n_No iterations yet._\n",
@@ -28,8 +44,9 @@ def ensure(ws: str) -> None:
         if not os.path.exists(p):
             with open(p, "w", encoding="utf-8") as fh:
                 fh.write(content)
-    if not os.path.isdir(os.path.join(w, ".git")):
-        subprocess.run(["git", "init", "-q"], cwd=w, check=False)
+            fresh = True
+    if fresh or not os.path.isdir(os.path.join(w, ".git")):
+        commit(ws, "wiki skeleton")
 
 
 def append_skill_impact(ws: str, entry: str) -> None:
