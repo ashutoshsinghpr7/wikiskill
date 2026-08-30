@@ -76,6 +76,11 @@ def cmd_evolve(args) -> int:
     if args.backend:
         backends.write_backend(ws, args.backend)
         print(f"[wikiskill] backend → {args.backend}")
+        if not args.dry_run:
+            # the switched-to backend needs its isolated profile (credentials,
+            # config, skills dir) before any rollout — init created it for
+            # fresh workspaces, but switching an existing one never did.
+            agents.bootstrap_profile(ws)
     state = harness.evolve(ws, iters=args.iters, model=args.model,
                            provider=args.provider, dry_run=args.dry_run,
                            verbose=True, max_turns=args.max_turns,

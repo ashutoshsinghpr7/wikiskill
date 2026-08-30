@@ -27,9 +27,12 @@ def workspace_file(ws: str) -> str:
 def read_backend(ws: str) -> str:
     try:
         with open(workspace_file(ws), encoding="utf-8") as f:
-            return json.load(f).get("backend", DEFAULT_BACKEND)
+            d = json.load(f)
     except (OSError, ValueError):
         return DEFAULT_BACKEND
+    # tolerate valid-but-wrong-type JSON (null/[]/42/"x") — corrupt configs
+    # fall back, they never crash the loop
+    return d.get("backend", DEFAULT_BACKEND) if isinstance(d, dict) else DEFAULT_BACKEND
 
 
 def write_backend(ws: str, name: str) -> None:

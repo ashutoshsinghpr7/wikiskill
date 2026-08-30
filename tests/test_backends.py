@@ -60,6 +60,18 @@ def test_resolve_unknown_backend_raises_valueerror_not_keyerror(tmp_path):
         assert "evil" in str(e)
 
 
+def test_read_backend_tolerates_non_dict_json(tmp_path):
+    """Regression (adversarial review): valid JSON of the wrong type in
+    workspace.json (null/[]/true/42/\"x\") must fall back to hermes, not crash
+    with AttributeError on `.get`."""
+    ws = _mkws(tmp_path)
+    for payload in ("null", "[]", "true", "42", '"claude"'):
+        with open(backends.workspace_file(ws), "w", encoding="utf-8") as f:
+            f.write(payload)
+        assert backends.read_backend(ws) == "hermes", payload
+        assert backends.resolve(ws).name == "hermes", payload
+
+
 # ---------------------------------------------------------------- hermes
 
 def test_hermes_backend_dry_run_command(tmp_path):
@@ -224,6 +236,23 @@ def test_facade_run_agent_dict_shape_matches_gating_contract(tmp_path):
     res = agents.run_agent(ws, "hi", tag="t1", dry_run=True)
     for key in ("cmd", "exit_code", "duration_s", "stdout_path", "session_file"):
         assert key in res
+
+
+def test_evolve_switch_backend_bootstraps_profile(tmp_path, monkeypatch):
+    """Regression (adversarial review): `evolve --backend claude` on an
+    existing workspace must bootstrap the claude profile (credentials,
+    config, skills dir) — otherwise every rollout fails auth and scores 0.0."""
+    from wikiskill import cli
+    ws = _mkws(tmp_path)
+    calls = []
+    monkeypatch.setattr(cli.agents, "bootstrap_profile",
+                        lambda *a, **k: calls.append("boot"))
+    monkeypatch.setattr(cli.harness, "evolve",
+                        lambda *a, **k: {"baseline": 1.0, "r_best": 1.0})
+    rc = cli.main(["evolve", ws, "--backend", "claude", "--dry-run"])
+    assert rc == 0 and calls == [], "dry-run must not bootstrap (side effects)"
+    rc = cli.main(["evolve", ws, "--backend", "claude"])
+    assert rc == 0 and calls == ["boot"], "real evolve must bootstrap the profile"
 
 
 def test_normalize_tolerates_non_dict_message(tmp_path):
