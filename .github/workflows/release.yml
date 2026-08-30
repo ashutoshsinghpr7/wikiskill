@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -14,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
       - name: Build sdist + wheel
         run: |
           pip install -q build
@@ -25,7 +26,7 @@ jobs:
           generate_release_notes: true
           files: dist/*
       - name: Publish to PyPI (when PYPI_TOKEN is configured)
-        if: ${{ secrets.PYPI_TOKEN != '' }}
+        if: secrets.PYPI_TOKEN != ''
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
