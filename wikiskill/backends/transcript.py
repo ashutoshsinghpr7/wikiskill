@@ -50,7 +50,8 @@ def normalize_claude_stream(src: str, dest: str) -> str:
                 continue  # tolerate non-object JSON events
             if ev.get("type") == "assistant":
                 messages += 1
-                for block in (ev.get("message") or {}).get("content") or []:
+                msg = ev.get("message")
+                for block in (msg.get("content") if isinstance(msg, dict) else []) or []:
                     if isinstance(block, dict) and block.get("type") == "tool_use":
                         tool_calls += 1
             elif ev.get("type") == "user":

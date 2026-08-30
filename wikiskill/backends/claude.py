@@ -161,8 +161,11 @@ def export_session(ws: str, run_dir: str, session_id: str | None = None) -> str 
     or empty output)."""
     out_path = os.path.join(run_dir, "stdout.txt")
     dest = os.path.join(run_dir, "session.jsonl")
-    if os.path.exists(out_path) and not os.path.exists(dest):
+    if os.path.exists(out_path):
         if os.path.getsize(out_path) == 0:
+            # never serve a transcript from an earlier run as this run's result
+            if os.path.exists(dest):
+                os.remove(dest)
             return None
         return transcript.normalize_claude_stream(out_path, dest)
     return dest if os.path.exists(dest) else None

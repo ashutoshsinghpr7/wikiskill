@@ -39,6 +39,27 @@ def test_write_and_resolve_backend(tmp_path):
         pass
 
 
+def test_write_backend_creates_missing_workspace_dir(tmp_path):
+    """Regression: `wikiskill init --backend claude` writes workspace.json
+    before init_workspace creates the dir — must not crash."""
+    fresh = str(tmp_path / "not" / "created" / "yet")
+    backends.write_backend(fresh, "claude")
+    assert os.path.exists(backends.workspace_file(fresh))
+
+
+def test_resolve_unknown_backend_raises_valueerror_not_keyerror(tmp_path):
+    """Regression: a hand-edited workspace.json with a bogus backend must
+    fail loudly (ValueError), not with an uncaught KeyError."""
+    ws = _mkws(tmp_path)
+    with open(backends.workspace_file(ws), "w", encoding="utf-8") as f:
+        json.dump({"backend": "evil"}, f)
+    try:
+        backends.resolve(ws)
+        assert False, "must raise"
+    except ValueError as e:
+        assert "evil" in str(e)
+
+
 # ---------------------------------------------------------------- hermes
 
 def test_hermes_backend_dry_run_command(tmp_path):
@@ -187,3 +208,37 @@ def test_facade_run_agent_dict_shape_matches_gating_contract(tmp_path):
     res = agents.run_agent(ws, "hi", tag="t1", dry_run=True)
     for key in ("cmd", "exit_code", "duration_s", "stdout_path", "session_file"):
         assert key in res
+
+
+def test_normalize_tolerates_non_dict_message(tmp_path):
+    """Regression: a stream event whose `message` is a string (corrupt/
+    partial JSON) must not crash the parser."""
+    src = tmp_path / "raw.jsonl"
+    src.write_text("\n".join([
+        json.dumps({"type": "assistant", "message": "interrupted"}),
+        json.dumps({"type": "user", "message": {"role": "user"}}),
+        json.dumps({"type": "result", "session_id": "s1"}),
+    ]))
+    dest = str(tmp_path / "session.jsonl")
+    transcript.normalize_claude_stream(str(src), dest)
+    header = json.loads(open(dest, encoding="utf-8").readline())
+    assert header["tool_call_count"] == 0
+    # the corrupted assistant event still counts as a message (content is
+    # unparseable but the event itself is real) — no crash is the point
+    assert header["message_count"] == 2
+
+
+def test_claude_export_never_serves_stale_transcript(tmp_path):
+    """Regression: an empty stdout (agent launch failure) must return None and
+    REMOVE any session.jsonl left by an earlier run — gating must never grade
+    a stale transcript as this run's result."""
+    from wikiskill.backends.claude import export_session
+    run_dir = str(tmp_path / "runs" / "iter-00" / "val" / "t1")
+    os.makedirs(run_dir)
+    dest = os.path.join(run_dir, "session.jsonl")
+    with open(dest, "w", encoding="utf-8") as f:
+        f.write('{"tool_call_count": 3}\n')
+    with open(os.path.join(run_dir, "stdout.txt"), "w", encoding="utf-8"):
+        pass  # empty stream
+    assert export_session(str(tmp_path), run_dir) is None
+    assert not os.path.exists(dest), "stale transcript must be removed"

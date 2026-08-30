@@ -35,6 +35,7 @@ def read_backend(ws: str) -> str:
 def write_backend(ws: str, name: str) -> None:
     if name not in BACKENDS:
         raise ValueError(f"unknown backend {name!r}; available: {sorted(BACKENDS)}")
+    os.makedirs(ws, exist_ok=True)  # fresh `init` workspaces don't exist yet
     with open(workspace_file(ws), "w", encoding="utf-8") as f:
         json.dump({"backend": name}, f, indent=2)
 
@@ -46,4 +47,6 @@ def get_backend(name: str) -> AgentBackend:
 
 
 def resolve(ws: str) -> AgentBackend:
-    return BACKENDS[read_backend(ws)]
+    # get_backend (not raw dict access) so a hand-edited workspace.json
+    # raises a clear ValueError instead of a KeyError
+    return get_backend(read_backend(ws))
