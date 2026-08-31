@@ -87,3 +87,24 @@ def test_report_contains_verdict_and_table():
     }
     out = compare.format_report(rep)
     assert "t1" in out and "A better" in out and "p=0.25" in out
+
+
+def test_compare_default_runner_does_not_crash(tmp_path):
+    """Regression: run_comparison forwarded max_turns to gating.run_task,
+    which has no such parameter — the default CLI path (no --max-turns)
+    crashed with TypeError on every real run."""
+    ws_a = build_ws(str(tmp_path / "a-ws"))
+    ws_b = build_ws(str(tmp_path / "b-ws"))
+    rep = compare.run_comparison(ws_a, ws_b, iters=1, dry_run=True)
+    # dry runs produce score=None; they count as failures, not crashes
+    assert rep["pass_rate"]["A"] == rep["pass_rate"]["B"] == 0.0
+
+
+def test_compare_no_val_tasks_is_a_clean_error(tmp_path):
+    ws = build_ws(str(tmp_path / "a-ws"))
+    tasks = tasks_mod.load(ws)
+    for t in tasks:
+        t["split"] = "train"
+    tasks_mod.save(ws, tasks)
+    with pytest.raises(ValueError, match="no val tasks"):
+        compare.run_comparison(ws, ws, iters=1, dry_run=True)

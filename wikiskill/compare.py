@@ -15,12 +15,15 @@ Verdict semantics:
 from __future__ import annotations
 
 import math
+import os
 
-from . import gating, tasks as tasks_mod
+from . import agents, gating, tasks as tasks_mod, traces as traces_mod
 
 
-def _pass(score: float) -> bool:
-    return score >= 0.5  # all bundled graders return 0.0 or 1.0
+def _pass(score: float | None) -> bool:
+    # Dry runs and agent launch failures produce score=None; count them as
+    # failures instead of crashing (missing deliverables already grade 0.0).
+    return score is not None and score >= 0.5  # all bundled graders return 0.0 or 1.0
 
 
 def _two_sided_binomial_p(b: int, c: int) -> float:
@@ -37,6 +40,27 @@ def _two_sided_binomial_p(b: int, c: int) -> float:
     return min(p, 1.0)
 
 
+def _runner_with_turns(runner, max_turns: int | None):
+    """Return a run_task-compatible runner with the agent turn budget pinned.
+
+    gating.run_task (the default runner) has no max_turns parameter — the turn
+    budget belongs to the agent-call layer (see cli.cmd_run_task, which wraps
+    agents.run_agent for exactly this reason). Forwarding max_turns to
+    run_task raises TypeError; wrap the agent call instead.
+    """
+    if max_turns is None:
+        return runner
+
+    def wrapped(ws, task, k, **kw):
+        def agent(*a, **ak):
+            ak.setdefault("max_turns", max_turns)
+            return agents.run_agent(*a, **ak)
+
+        return runner(ws, task, k, runner=agent, **kw)
+
+    return wrapped
+
+
 def run_comparison(ws_a: str, ws_b: str, iters: int = 3, *,
                    runner=gating.run_task, dry_run: bool = False,
                    max_turns: int | None = None) -> dict:
@@ -49,17 +73,37 @@ def run_comparison(ws_a: str, ws_b: str, iters: int = 3, *,
         raise ValueError(
             f"workspaces have different val task sets "
             f"(A has {len(ids_a)}, B has {len(ids_b)}); compare needs identical tasks")
+    if not ids_a:
+        raise ValueError(
+            "no val tasks in either workspace; nothing to compare "
+            "(regenerate the bench so at least one task has split=\"val\")")
     ids = sorted(ids_a)
 
+    # Fairness advisory: a paired comparison is only meaningful when both
+    # workspaces' past val traces were produced against the same evolution
+    # state. If a workspace already has val traces from several iterations,
+    # per-task pass rates below may mix different skill sets.
+    for tag, ws in (("A", ws_a), ("B", ws_b)):
+        seen: dict[str, set[int]] = {}
+        for tr in traces_mod.list_traces(ws, split="val"):
+            seen.setdefault(tr["task_id"], set()).add(tr["it"])
+        drifted = {tid: sorted(its) for tid, its in seen.items() if len(its) > 1}
+        if drifted:
+            print(f"[wikiskill] ⚠ workspace {tag} "
+                  f"({os.path.basename(ws.rstrip('/'))}): some val tasks have "
+                  f"traces from multiple iterations {drifted}; pass rates may "
+                  f"mix different skill sets")
+
     # Per (task, run) outcome for each workspace.
+    effective_runner = _runner_with_turns(runner, max_turns)
     scores = {"A": {}, "B": {}}
     for tag, ws in (("A", ws_a), ("B", ws_b)):
         for tid in ids:
             task = next(t for t in (ta if tag == "A" else tb) if t["id"] == tid)
             per_run = []
             for k in range(iters):
-                res = runner(ws, task, k, dry_run=dry_run,
-                             overwrite=True, max_turns=max_turns)
+                res = effective_runner(ws, task, k, dry_run=dry_run,
+                                       overwrite=True)
                 per_run.append(1.0 if _pass(res["score"]) else 0.0)
             scores[tag][tid] = per_run
 
