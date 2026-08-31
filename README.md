@@ -153,6 +153,27 @@ Each workspace pins its backend in `workspaces/<domain>/workspace.json`; switch
 anytime with `wikiskill evolve <domain> --backend claude`. Skills evolved on
 one backend transfer to another via `wikiskill transfer` (same SKILL.md format).
 
+## Skills tap — install the evolved skills in Hermes
+
+This repo doubles as a [Hermes skills tap](https://agentskills.io/specification) —
+the skills distilled from real evolution runs, installable with one command:
+
+```bash
+hermes skills tap add ashutoshsinghpr7/wikiskill
+```
+
+| Skill | What it teaches |
+|---|---|
+| `wikiskill-evolve` | Run the full evolution loop from inside Hermes |
+| `search-miss-binary` | ripgrep silently skips binary files — verify empty results |
+| `script-exec-blocked` | Sandbox approval policy: use file tools, not python3 -c |
+| `spec-literal-execution` | Apply only the spec's literal clauses — no hidden transforms |
+| `trace-harness-launch-failure` | Empty traces = launch failure, not agent behavior |
+| `verify-output-readback` | Re-read the deliverable before finishing |
+
+Every skill ships as a standard SKILL.md (agentskills.io-compatible) and was
+distilled from real graded runs in `docs/RUNS.md`.
+
 ## Roadmap
 
 **Done:**
