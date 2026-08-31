@@ -153,26 +153,33 @@ Each workspace pins its backend in `workspaces/<domain>/workspace.json`; switch
 anytime with `wikiskill evolve <domain> --backend claude`. Skills evolved on
 one backend transfer to another via `wikiskill transfer` (same SKILL.md format).
 
-## Skills tap — install the evolved skills in Hermes
+## Skills tap — install the distilled patterns in Hermes
 
 This repo doubles as a [Hermes skills tap](https://agentskills.io/specification) —
-the skills distilled from real evolution runs, installable with one command:
+the patterns distilled from live evolution runs, installable in Hermes:
 
 ```bash
 hermes skills tap add ashutoshsinghpr7/wikiskill
+hermes skills install ashutoshsinghpr7/wikiskill/skills/wikiskill-evolve
+hermes skills install ashutoshsinghpr7/wikiskill/skills/search-miss-binary
+# ...one `install` per skill you want
 ```
 
-| Skill | What it teaches |
-|---|---|
-| `wikiskill-evolve` | Run the full evolution loop from inside Hermes |
-| `search-miss-binary` | ripgrep silently skips binary files — verify empty results |
-| `script-exec-blocked` | Sandbox approval policy: use file tools, not python3 -c |
-| `spec-literal-execution` | Apply only the spec's literal clauses — no hidden transforms |
-| `trace-harness-launch-failure` | Empty traces = launch failure, not agent behavior |
-| `verify-output-readback` | Re-read the deliverable before finishing |
+| Skill | What it teaches | Paper layer |
+|---|---|---|
+| `wikiskill-evolve` | Run the full evolution loop from inside Hermes | framework meta-skill (tooling doc, not a paper artifact) |
+| `search-miss-binary` | ripgrep silently skips binary files — verify empty results | maintainer wiki pattern (distilled from live run) |
+| `script-exec-blocked` | Sandbox approval policy: use file tools, not `python3 -c` | maintainer wiki pattern |
+| `spec-literal-execution` | Apply only the spec's literal clauses — no hidden transforms | maintainer wiki pattern |
+| `trace-harness-launch-failure` | Empty traces = launch failure, not agent behavior | maintainer wiki pattern |
+| `verify-output-readback` | Re-read the deliverable before finishing | maintainer wiki pattern |
 
-Every skill ships as a standard SKILL.md (agentskills.io-compatible) and was
-distilled from real graded runs in `docs/RUNS.md`.
+**Paper alignment, stated honestly:** the five operational skills are the
+*maintainer's* distilled patterns from real graded runs (`docs/RUNS.md`) — the
+paper's wiki layer. None has been *accepted* by the validation gate yet (every
+live gate so far was a rejection or `no_action`), so treat them as
+well-evidenced raw material for the proposer/gate pipeline, not as
+gate-approved skills. All ship as standard SKILL.md (agentskills.io-compatible).
 
 ## Roadmap
 
