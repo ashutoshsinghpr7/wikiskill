@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wikiskill"
-version = "0.1.2"
+version = "0.1.3"
 description = "WikiSkill (arXiv:2608.27454) for Hermes Agent — self-evolving agent skills via a persistent knowledge wiki"
 readme = "README.md"
 requires-python = ">=3.10"
