@@ -69,21 +69,21 @@ def bootstrap_profile(ws: str, real: str | None = None) -> str:
     return prof
 
 
-def _sandbox_skills_dir(workdir: str | None) -> str | None:
-    """The task sandbox's .github/skills dir (Copilot's project-skill layout)."""
-    if not workdir:
-        return None
-    d = os.path.join(workdir, ".github", "skills")
+def _sandbox_skills_dir(workdir: str | None, ws: str) -> str:
+    """Copilot's project-skill dir (.github/skills) in the run context.
+
+    Inference runs pin the task sandbox (workdir); maintainer/proposer turns
+    operate at the workspace level, so the fallback is the workspace root.
+    """
+    d = os.path.join(workdir or ws, ".github", "skills")
     os.makedirs(d, exist_ok=True)
     return d
 
 
 def set_active_skills(ws: str, include_framework: bool = False,
                       workdir: str | None = None) -> None:
-    """Symlink the active skill set into the sandbox's .github/skills/."""
-    dest = _sandbox_skills_dir(workdir)
-    if not dest:
-        return
+    """Symlink the active skill set into the run context's .github/skills/."""
+    dest = _sandbox_skills_dir(workdir, ws)
     for name in os.listdir(dest):
         p = os.path.join(dest, name)
         if os.path.islink(p):
@@ -137,8 +137,8 @@ def run(ws: str, prompt: str, *, tag: str, toolsets: str = DEFAULT_TOOLSETS,
 
     cmd = ["copilot", "-p", "-s", "--allow-all-tools", "--allow-all-paths",
            "--no-ask-user"]
-    if workdir:
-        cmd += ["--add-dir", workdir]
+    add_dir = workdir or ws
+    cmd += ["--add-dir", add_dir]
     model = _resolved_model(ws, model)
     if model:
         cmd += ["--model", model]
@@ -191,13 +191,14 @@ def export_session(ws: str, run_dir: str, session_id: str | None = None) -> str 
                     continue
                 if not isinstance(ev, dict):
                     continue
-                if ev.get("type") == "message":
+                # real copilot events.jsonl schema (v1.0.x):
+                # user.message / assistant.message / tool.execution_start
+                # tool.execution_complete / system.message / session.*
+                t = ev.get("type", "")
+                if t in ("user.message", "assistant.message"):
                     messages += 1
-                    c = ev.get("content", "")
-                    if isinstance(c, list):
-                        for block in c:
-                            if isinstance(block, dict) and block.get("type") == "tool_use":
-                                tool_calls += 1
+                elif t == "tool.execution_start":
+                    tool_calls += 1
                 kept.append(ev)
         header = {"backend": "copilot", "tool_call_count": tool_calls,
                   "message_count": messages}

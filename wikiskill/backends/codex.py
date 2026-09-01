@@ -124,9 +124,10 @@ def run(ws: str, prompt: str, *, tag: str, toolsets: str = DEFAULT_TOOLSETS,
     model = _resolved_model(ws, model)
     if model:
         cmd += ["--model", model]
-    # max_turns maps to Codex's --max-turns for exec; absent on some builds
-    # (the flag is validated at run time by the CLI itself)
-    cmd += ["--max-turns", str(max_turns)]
+    # max_turns is accepted by the protocol for interface compatibility, but
+    # `codex exec` has no --max-turns flag — the CLI runs to completion per
+    # prompt. Passing an unknown flag would break every live run.
+    # (No run_budget mapping either: codex has no budget flag in exec mode.)
 
     if dry_run:
         return RunResult(cmd=cmd, dry_run=True, extra={"run_dir": run_dir,
@@ -179,15 +180,13 @@ def export_session(ws: str, run_dir: str, session_id: str | None = None) -> str 
                     continue
                 if not isinstance(ev, dict):
                     continue
-                if ev.get("type") == "message":
+                # codex session JSONL schema: session_init / user_message /
+                # agent_message / tool_call / tool_result (payload-carrying).
+                t = ev.get("type", "")
+                if t in ("user_message", "agent_message"):
                     messages += 1
-                    c = ev.get("content", "")
-                    if isinstance(c, str) and "tool_use" in c:
-                        tool_calls += 1
-                    elif isinstance(c, list):
-                        for block in c:
-                            if isinstance(block, dict) and block.get("type") == "tool_use":
-                                tool_calls += 1
+                elif t == "tool_call":
+                    tool_calls += 1
                 kept.append(ev)
         header = {"backend": "codex", "tool_call_count": tool_calls,
                   "message_count": messages}

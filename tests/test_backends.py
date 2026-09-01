@@ -300,7 +300,8 @@ def test_codex_backend_dry_run_command(tmp_path):
     r = CodexBackend().run(ws, "do it", tag="t1", max_turns=9, dry_run=True)
     assert r.cmd[:3] == ["codex", "exec", "--json"]
     assert "--full-auto" in r.cmd
-    assert "--max-turns" in r.cmd and r.cmd[r.cmd.index("--max-turns") + 1] == "9"
+    # codex exec has no --max-turns flag — it must NOT be in the command
+    assert "--max-turns" not in r.cmd
 
 
 def test_codex_run_uses_isolated_config(tmp_path):
@@ -331,9 +332,10 @@ def test_codex_export_session_counts_messages_and_tool_calls(tmp_path):
     sess = os.path.join(ws, ".codex-home", "sessions")
     os.makedirs(sess, exist_ok=True)
     with open(os.path.join(sess, "s1.jsonl"), "w") as f:
-        f.write('{"type": "message", "content": "hello"}\n')
-        f.write('{"type": "message", "content": [{"type": "tool_use", "name": "shell"}]}\n')
-        f.write('{"type": "message", "content": "done"}\n')
+        f.write('{"type": "session_init", "payload": {"model": "gpt-5.4"}}\n')
+        f.write('{"type": "user_message", "payload": {"text": "hello"}}\n')
+        f.write('{"type": "tool_call", "payload": {"name": "shell"}}\n')
+        f.write('{"type": "agent_message", "payload": {"text": "done"}}\n')
     run_dir = os.path.join(ws, "runs", "t1")
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "stdout.txt"), "w") as f:
@@ -344,7 +346,7 @@ def test_codex_export_session_counts_messages_and_tool_calls(tmp_path):
     with open(dest) as f:
         header = json.loads(f.readline())
     assert header["tool_call_count"] == 1
-    assert header["message_count"] == 3
+    assert header["message_count"] == 2
     assert transcript.tool_call_count(dest) == 1
 
 
@@ -397,8 +399,11 @@ def test_copilot_export_session_from_events_jsonl(tmp_path):
     evdir = os.path.join(ws, ".copilot-home", "session-state", "abc123")
     os.makedirs(evdir, exist_ok=True)
     with open(os.path.join(evdir, "events.jsonl"), "w") as f:
-        f.write('{"type": "message", "content": "hi"}\n')
-        f.write('{"type": "message", "content": [{"type": "tool_use"}]}\n')
+        f.write('{"type": "session.start", "data": {}}\n')
+        f.write('{"type": "user.message", "data": {"text": "hi"}}\n')
+        f.write('{"type": "tool.execution_start", "data": {}}\n')
+        f.write('{"type": "assistant.message", "data": {"text": "ok"}}\n')
+        f.write('{"type": "tool.execution_complete", "data": {}}\n')
     run_dir = os.path.join(ws, "runs", "t1")
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "stdout.txt"), "w") as f:
