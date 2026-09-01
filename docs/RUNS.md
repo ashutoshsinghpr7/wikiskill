@@ -168,3 +168,41 @@ Audited 2026-08-30 (all three appeared within 2 days of the paper):
 Independent design convergence: SkillForge and this repo both chose strict
 `>` gating, wiki-always-persists, and fake-runner loop tests — good evidence
 both read Algorithm 1 correctly.
+
+## Backend live verification (2026-09-02, issue #13/#15/#24)
+
+Real runs of the new backends against their actual CLIs — every claim below
+was produced by executing the shipped command, not mocks:
+
+### Copilot backend (issue #24) — live-verified twice
+
+| Run | Result |
+|---|---|
+| Smoke 1 (PONG task, 44s) | exit 0, deliverable written, transcript captured |
+| Smoke 2 (PONG task, 29s) | exit 0, **tool_call_count=9 / message_count=8** (real activity) |
+
+Live findings that shaped the code:
+- Copilot's `events.jsonl` schema is `session.start / user.message /
+  assistant.message / tool.execution_start / tool.execution_complete / ...`
+  — an initial parser keyed on `message` events produced `tool_call_count=0`
+  for real runs, which the gating launch-failure check would have read as a
+  launch failure (scored from fresh sandbox). Fixed + re-verified live.
+- `-p -s --allow-all-tools --allow-all-paths --no-ask-user` is the valid
+  non-interactive shape; skills load from the run context's `.github/skills/`
+  (`--add-dir`), so the active set is symlinked there per run.
+
+### Codex backend (issue #15) — live-verified (0.152.0, 12s)
+
+PONG task: exit 0, deliverable written, transcript
+`tool_call_count=1 / message_count=3` from the real session file.
+
+Live findings that shaped the code:
+- `codex exec` has **no** `--json` / `--full-auto` / `--max-turns` flags —
+  the correct shape is `codex exec --approve-for-me --skip-git-repo-check`
+  (`--approve-for-me` implies the workspace-write sandbox; `--sandbox` and
+  `--approve-for-me` are mutually exclusive in the CLI).
+- Sessions are stored as `sessions/YYYY/MM/DD/rollout-*.jsonl` (recursive
+  discovery required) with a `response_item` schema: `message` (role
+  user/assistant) and `custom_tool_call` are the message/tool-call signals.
+- Installed via `npm i -g @openai/codex` with a user-level npm prefix
+  (`~/.npm-global/bin/codex`); auth came from the existing `~/.codex/auth.json`.

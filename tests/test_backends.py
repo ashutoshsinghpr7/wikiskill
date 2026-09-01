@@ -298,10 +298,12 @@ def test_codex_backend_dry_run_command(tmp_path):
     ws = _mkws(tmp_path)
     from wikiskill.backends.codex import CodexBackend
     r = CodexBackend().run(ws, "do it", tag="t1", max_turns=9, dry_run=True)
-    assert r.cmd[:3] == ["codex", "exec", "--json"]
-    assert "--full-auto" in r.cmd
-    # codex exec has no --max-turns flag — it must NOT be in the command
-    assert "--max-turns" not in r.cmd
+    assert r.cmd[:2] == ["codex", "exec"]
+    assert "--approve-for-me" in r.cmd and "--skip-git-repo-check" in r.cmd
+    # --sandbox conflicts with --approve-for-me (the latter implies
+    # workspace-write); codex exec has no --max-turns / --json / --full-auto
+    for bad in ("--max-turns", "--json", "--full-auto", "--sandbox"):
+        assert bad not in r.cmd
 
 
 def test_codex_run_uses_isolated_config(tmp_path):
@@ -329,13 +331,15 @@ def test_codex_bootstrap_copies_auth(tmp_path):
 
 def test_codex_export_session_counts_messages_and_tool_calls(tmp_path):
     ws = _mkws(tmp_path)
-    sess = os.path.join(ws, ".codex-home", "sessions")
+    # codex nests sessions as sessions/YYYY/MM/DD/rollout-*.jsonl
+    sess = os.path.join(ws, ".codex-home", "sessions", "2026", "09", "02")
     os.makedirs(sess, exist_ok=True)
-    with open(os.path.join(sess, "s1.jsonl"), "w") as f:
-        f.write('{"type": "session_init", "payload": {"model": "gpt-5.4"}}\n')
-        f.write('{"type": "user_message", "payload": {"text": "hello"}}\n')
-        f.write('{"type": "tool_call", "payload": {"name": "shell"}}\n')
-        f.write('{"type": "agent_message", "payload": {"text": "done"}}\n')
+    with open(os.path.join(sess, "rollout-a.jsonl"), "w") as f:
+        f.write('{"type": "session_meta", "payload": {}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "message", "role": "user"}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "custom_tool_call", "name": "exec"}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "message", "role": "assistant"}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "reasoning", "summary": "[]"}}\n')
     run_dir = os.path.join(ws, "runs", "t1")
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "stdout.txt"), "w") as f:

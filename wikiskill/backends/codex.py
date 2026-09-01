@@ -23,6 +23,7 @@ Notes / caveats
 
 from __future__ import annotations
 
+import glob
 import json
 import os
 import shutil
@@ -120,7 +121,9 @@ def run(ws: str, prompt: str, *, tag: str, toolsets: str = DEFAULT_TOOLSETS,
     with open(qfile, "w", encoding="utf-8") as f:
         f.write(prompt)
 
-    cmd = ["codex", "exec", "--json", "--full-auto"]
+    # --approve-for-me implies the workspace-write sandbox (the two flags are
+    # mutually exclusive in the CLI); the task sandbox IS the workspace.
+    cmd = ["codex", "exec", "--approve-for-me", "--skip-git-repo-check"]
     model = _resolved_model(ws, model)
     if model:
         cmd += ["--model", model]
@@ -148,12 +151,12 @@ def run(ws: str, prompt: str, *, tag: str, toolsets: str = DEFAULT_TOOLSETS,
 
 
 def _newest_session_jsonl(ws: str) -> str | None:
-    """Newest *.jsonl under the profile's sessions/ dir (session transcript)."""
+    """Newest *.jsonl under the profile's sessions/ dir (recursive — codex
+    stores sessions as sessions/YYYY/MM/DD/rollout-*.jsonl)."""
     sessions = os.path.join(profile_dir(ws), "sessions")
     if not os.path.isdir(sessions):
         return None
-    cands = [os.path.join(sessions, f) for f in os.listdir(sessions)
-             if f.endswith(".jsonl")]
+    cands = glob.glob(os.path.join(sessions, "**", "*.jsonl"), recursive=True)
     if not cands:
         return None
     return max(cands, key=os.path.getmtime)
@@ -180,13 +183,16 @@ def export_session(ws: str, run_dir: str, session_id: str | None = None) -> str 
                     continue
                 if not isinstance(ev, dict):
                     continue
-                # codex session JSONL schema: session_init / user_message /
-                # agent_message / tool_call / tool_result (payload-carrying).
-                t = ev.get("type", "")
-                if t in ("user_message", "agent_message"):
-                    messages += 1
-                elif t == "tool_call":
-                    tool_calls += 1
+                # codex session JSONL schema (v0.15x): session_meta / event_msg /
+                # response_item (payload.type: message|reasoning|custom_tool_call|
+                # custom_tool_call_output) / world_state / turn_context.
+                if ev.get("type") == "response_item":
+                    p = ev.get("payload") or {}
+                    it = p.get("type")
+                    if it == "message" and p.get("role") in ("user", "assistant"):
+                        messages += 1
+                    elif it == "custom_tool_call":
+                        tool_calls += 1
                 kept.append(ev)
         header = {"backend": "codex", "tool_call_count": tool_calls,
                   "message_count": messages}
