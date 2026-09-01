@@ -290,3 +290,138 @@ def test_claude_export_never_serves_stale_transcript(tmp_path):
         pass  # empty stream
     assert export_session(str(tmp_path), run_dir) is None
     assert not os.path.exists(dest), "stale transcript must be removed"
+
+
+# ---------------------------------------------------------------- codex (issue #15)
+
+def test_codex_backend_dry_run_command(tmp_path):
+    ws = _mkws(tmp_path)
+    from wikiskill.backends.codex import CodexBackend
+    r = CodexBackend().run(ws, "do it", tag="t1", max_turns=9, dry_run=True)
+    assert r.cmd[:2] == ["codex", "exec"]
+    assert "--approve-for-me" in r.cmd and "--skip-git-repo-check" in r.cmd
+    # --sandbox conflicts with --approve-for-me (the latter implies
+    # workspace-write); codex exec has no --max-turns / --json / --full-auto
+    for bad in ("--max-turns", "--json", "--full-auto", "--sandbox"):
+        assert bad not in r.cmd
+
+
+def test_codex_run_uses_isolated_config(tmp_path):
+    ws = _mkws(tmp_path)
+    from wikiskill.backends.codex import CodexBackend
+    b = CodexBackend()
+    e = b.env(ws)
+    assert e["CODEX_HOME"] == os.path.join(ws, ".codex-home")
+    assert b.profile_dir_name == ".codex-home"
+
+
+def test_codex_bootstrap_copies_auth(tmp_path):
+    real = str(tmp_path / "real")
+    os.makedirs(real, exist_ok=True)
+    with open(os.path.join(real, "auth.json"), "w") as f:
+        f.write("{}")
+    with open(os.path.join(real, "config.toml"), "w") as f:
+        f.write("model = 'x'")
+    ws = _mkws(tmp_path, "ws2")
+    from wikiskill.backends.codex import CodexBackend
+    CodexBackend().bootstrap_profile(ws, real=real)
+    assert os.path.exists(os.path.join(ws, ".codex-home", "auth.json"))
+    assert os.path.exists(os.path.join(ws, ".codex-home", "config.toml"))
+
+
+def test_codex_export_session_counts_messages_and_tool_calls(tmp_path):
+    ws = _mkws(tmp_path)
+    # codex nests sessions as sessions/YYYY/MM/DD/rollout-*.jsonl
+    sess = os.path.join(ws, ".codex-home", "sessions", "2026", "09", "02")
+    os.makedirs(sess, exist_ok=True)
+    with open(os.path.join(sess, "rollout-a.jsonl"), "w") as f:
+        f.write('{"type": "session_meta", "payload": {}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "message", "role": "user"}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "custom_tool_call", "name": "exec"}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "message", "role": "assistant"}}\n')
+        f.write('{"type": "response_item", "payload": {"type": "reasoning", "summary": "[]"}}\n')
+    run_dir = os.path.join(ws, "runs", "t1")
+    os.makedirs(run_dir, exist_ok=True)
+    with open(os.path.join(run_dir, "stdout.txt"), "w") as f:
+        f.write("out")
+    from wikiskill.backends.codex import CodexBackend
+    dest = CodexBackend().export_session(ws, run_dir)
+    assert dest and os.path.exists(dest)
+    with open(dest) as f:
+        header = json.loads(f.readline())
+    assert header["tool_call_count"] == 1
+    assert header["message_count"] == 2
+    assert transcript.tool_call_count(dest) == 1
+
+
+# ---------------------------------------------------------------- copilot (issue #24)
+
+def test_copilot_backend_dry_run_command(tmp_path):
+    ws = _mkws(tmp_path)
+    from wikiskill.backends.copilot import CopilotBackend
+    r = CopilotBackend().run(ws, "do it", tag="t1", workdir=str(tmp_path / "sb"),
+                             model="gpt-5.4", dry_run=True)
+    assert r.cmd[0] == "copilot" and "-p" in r.cmd and "-s" in r.cmd
+    assert "--allow-all-tools" in r.cmd and "--allow-all-paths" in r.cmd
+    assert "--no-ask-user" in r.cmd
+    assert r.cmd[r.cmd.index("--add-dir") + 1] == str(tmp_path / "sb")
+    assert r.cmd[r.cmd.index("--model") + 1] == "gpt-5.4"
+
+
+def test_copilot_env_isolation(tmp_path):
+    ws = _mkws(tmp_path)
+    from wikiskill.backends.copilot import CopilotBackend
+    assert CopilotBackend().env(ws)["COPILOT_HOME"] == os.path.join(ws, ".copilot-home")
+
+
+def test_copilot_bootstrap_copies_config(tmp_path):
+    real = str(tmp_path / "real")
+    os.makedirs(real, exist_ok=True)
+    with open(os.path.join(real, "config.json"), "w") as f:
+        f.write("{}")
+    ws = _mkws(tmp_path, "ws2")
+    from wikiskill.backends.copilot import CopilotBackend
+    CopilotBackend().bootstrap_profile(ws, real=real)
+    assert os.path.exists(os.path.join(ws, ".copilot-home", "config.json"))
+
+
+def test_copilot_set_active_skills_symlinks_into_sandbox(tmp_path):
+    ws = _mkws(tmp_path)
+    active = os.path.join(ws, "skills", "active", "s1")
+    os.makedirs(active, exist_ok=True)
+    with open(os.path.join(active, "SKILL.md"), "w") as f:
+        f.write("---\nname: s1\n---")
+    sb = str(tmp_path / "sb")
+    os.makedirs(sb, exist_ok=True)
+    from wikiskill.backends.copilot import CopilotBackend
+    CopilotBackend().set_active_skills(ws, workdir=sb)
+    assert os.path.islink(os.path.join(sb, ".github", "skills", "s1"))
+
+
+def test_copilot_export_session_from_events_jsonl(tmp_path):
+    ws = _mkws(tmp_path)
+    evdir = os.path.join(ws, ".copilot-home", "session-state", "abc123")
+    os.makedirs(evdir, exist_ok=True)
+    with open(os.path.join(evdir, "events.jsonl"), "w") as f:
+        f.write('{"type": "session.start", "data": {}}\n')
+        f.write('{"type": "user.message", "data": {"text": "hi"}}\n')
+        f.write('{"type": "tool.execution_start", "data": {}}\n')
+        f.write('{"type": "assistant.message", "data": {"text": "ok"}}\n')
+        f.write('{"type": "tool.execution_complete", "data": {}}\n')
+    run_dir = os.path.join(ws, "runs", "t1")
+    os.makedirs(run_dir, exist_ok=True)
+    with open(os.path.join(run_dir, "stdout.txt"), "w") as f:
+        f.write("out")
+    from wikiskill.backends.copilot import CopilotBackend
+    dest = CopilotBackend().export_session(ws, run_dir)
+    with open(dest) as f:
+        header = json.loads(f.readline())
+    assert header["tool_call_count"] == 1
+    assert header["message_count"] == 2
+
+
+def test_registry_has_codex_and_copilot(tmp_path):
+    ws = _mkws(tmp_path)
+    for name in ("codex", "copilot"):
+        backends.write_backend(ws, name)
+        assert backends.resolve(ws).name == name

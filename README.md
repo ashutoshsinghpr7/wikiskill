@@ -4,7 +4,7 @@
 
 > 📚 **Docs site**: [ashutoshsinghpr7.github.io/wikiskill](https://ashutoshsinghpr7.github.io/wikiskill) · **arXiv**: [2608.27454](https://arxiv.org/abs/2608.27454)
 
-A faithful, production-minded implementation of **[WikiSkill: Compiling Agent Experience into Persistent Knowledge for Skill Evolution](https://arxiv.org/abs/2608.27454)** (arXiv:2608.27454, Google Research). The loop is **agent-agnostic** — **Hermes Agent** is the reference backend (built natively), **Claude Code** ships in the box, and Codex/OpenCode are on the roadmap ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill/issues/13)). Your agent becomes both the *student* and the *teacher*.
+A faithful, production-minded implementation of **[WikiSkill: Compiling Agent Experience into Persistent Knowledge for Skill Evolution](https://arxiv.org/abs/2608.27454)** (arXiv:2608.27454, Google Research). The loop is **agent-agnostic** — **Hermes Agent** is the reference backend (built natively), **Claude Code**, **Codex** and **GitHub Copilot CLI** ship in the box, and OpenCode is on the roadmap ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill/issues/13)). Your agent becomes both the *student* and the *teacher*.
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -148,6 +148,8 @@ backend-agnostic ([issue #13](https://github.com/ashutoshsinghpr7/wikiskill/issu
 |---|---|---|
 | `hermes` (default) | `wikiskill init demo --backend hermes` | reference implementation; isolated `HERMES_HOME` per workspace |
 | `claude` | `wikiskill init demo --backend claude` | Claude Code 2.x (`claude -p`), isolated `CLAUDE_CONFIG_DIR`, transcripts normalized from the stream-json output; `claude auth login` required once |
+| `codex` | `wikiskill init demo --backend codex` | OpenAI Codex (`codex exec --json --full-auto`), isolated `CODEX_HOME`, transcripts from session JSONL; `codex login` once + binary on PATH |
+| `copilot` | `wikiskill init demo --backend copilot` | GitHub Copilot CLI (`copilot -p -s`), isolated `COPILOT_HOME`, skills symlinked into the sandbox's `.github/skills/`; `copilot login` once (or `GH_TOKEN`) |
 
 Each workspace pins its backend in `workspaces/<domain>/workspace.json`; switch
 anytime with `wikiskill evolve <domain> --backend claude`. Skills evolved on
@@ -187,13 +189,13 @@ gate-approved skills. All ship as standard SKILL.md (agentskills.io-compatible).
 - [x] `compare` command — paired exact-binomial run comparison ([#6](https://github.com/ashutoshsinghpr7/wikiskill/pull/6))
 - [x] Skill *transfer* across workspaces/models ([#7](https://github.com/ashutoshsinghpr7/wikiskill/pull/7))
 - [x] Cron-driven overnight evolution (`hermes cron`, 01:00 IST nightly) + docs/CRON.md
-- [x] Multi-agent backends: Hermes (reference) + **Claude Code**, protocol ready for more ([#13](https://github.com/ashutoshsinghpr7/wikiskill/issues/13))
+- [x] Multi-agent backends: Hermes (reference) + **Claude Code**, **Codex**, **GitHub Copilot CLI** ([#13](https://github.com/ashutoshsinghpr7/wikiskill/issues/13), [#15](https://github.com/ashutoshsinghpr7/wikiskill/issues/15), [#24](https://github.com/ashutoshsinghpr7/wikiskill/issues/24))
 - [x] GitHub Pages — custom animated docs site ([#18](https://github.com/ashutoshsinghpr7/wikiskill/pull/18))
 - [x] PyPI package `wikiskill` via **tokenless trusted publishing** ([#20](https://github.com/ashutoshsinghpr7/wikiskill/pull/20))
 - [x] Multi-iteration compounding run — honest negative documented (Run 6)
 
 **Planned:**
-- [ ] Codex backend ([#15](https://github.com/ashutoshsinghpr7/wikiskill/issues/15))
+- [ ] Codex backend — **done** ([#15](https://github.com/ashutoshsinghpr7/wikiskill/issues/15))
 - [ ] OpenCode backend ([#16](https://github.com/ashutoshsinghpr7/wikiskill/issues/16))
 - [ ] Cross-agent transfer demo — evolve on one agent, gate on another ([#17](https://github.com/ashutoshsinghpr7/wikiskill/issues/17))
 - [ ] A live *acceptance* gate (proposal beats baseline on a real model) — still the open scientific question (see Run 6)

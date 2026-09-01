@@ -11,11 +11,15 @@ import os
 
 from .base import AgentBackend
 from .claude import ClaudeBackend
+from .codex import CodexBackend
+from .copilot import CopilotBackend
 from .hermes import HermesBackend
 
 BACKENDS: dict[str, AgentBackend] = {
     "hermes": HermesBackend(),
     "claude": ClaudeBackend(),
+    "codex": CodexBackend(),
+    "copilot": CopilotBackend(),
 }
 DEFAULT_BACKEND = "hermes"
 
