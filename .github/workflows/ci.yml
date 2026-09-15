@@ -19,8 +19,37 @@ jobs:
       - name: Install
         run: |
           pip install -e .
-          pip install pytest pyflakes
+          pip install pytest pyflakes build setuptools
       - name: Lint
-        run: python3 -m pyflakes wikiskill/ tests/
+        run: python3 -m pyflakes wikiskill/ tests/ setup.py
       - name: Test
         run: python3 -m pytest tests/ -q
+
+  # Issue #29: the packaging path the `test` job never exercises. `pip install -e .`
+  # resolves the framework skills from the checkout, so a wheel that ships none
+  # still passed CI — and every PyPI install ran the maintainer and proposer
+  # turns with no skill loaded, silently. Build the artifact, install it into a
+  # clean venv, and assert that `init` stages the skills.
+  wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the wheel
+        run: |
+          pip install -q build
+          python -m build --wheel --outdir dist
+      - name: Install the wheel into a clean venv (no checkout on sys.path)
+        run: |
+          python -m venv /tmp/wheel-check
+          /tmp/wheel-check/bin/pip install -q dist/*.whl
+      - name: Non-editable install must stage the framework skills
+        working-directory: /tmp
+        run: |
+          /tmp/wheel-check/bin/wikiskill init demo
+          test -s workspaces/demo/skills/framework/wikiskill-maintainer/SKILL.md
+          test -s workspaces/demo/skills/framework/wikiskill-proposer/SKILL.md
+          echo "OK: framework skills staged at $(pwd)/workspaces/demo/skills/framework/"
+

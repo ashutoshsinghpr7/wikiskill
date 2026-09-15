@@ -206,3 +206,87 @@ Live findings that shaped the code:
   user/assistant) and `custom_tool_call` are the message/tool-call signals.
 - Installed via `npm i -g @openai/codex` with a user-level npm prefix
   (`~/.npm-global/bin/codex`); auth came from the existing `~/.codex/auth.json`.
+
+## Packaging bug — published wheels ship no framework skills (issue #29, 2026-09-16)
+
+Reported by [@movanet](https://github.com/movanet) against 0.1.4. **Reproduced
+here before fixing, and it is real for every non-editable install:**
+
+```bash
+python -m venv /tmp/wk && /tmp/wk/bin/pip install wikiskill==0.1.4
+cd /tmp && /tmp/wk/bin/wikiskill init demo
+ls /tmp/wk/lib/python3.13/site-packages/workspaces/demo/skills/framework/   # empty
+# and the source it copies from doesn't exist either:
+python -c "from wikiskill.harness import repo_skills_dir; import os; print(repo_skills_dir(), os.path.isdir(repo_skills_dir()))"
+# → <site-packages>/skills False
+```
+
+The PyPI 0.1.4 wheel contains 26 entries: 13 `wikiskill/*.py` modules, the 7
+files under `wikiskill/backends/`, and 6 dist-info entries. **No `skills/` at
+all** — `skills/` sits at the repo root (`pyproject.toml` packages only
+`wikiskill` + `wikiskill.backends`, no `package-data`, no `MANIFEST.in`), and
+`repo_skills_dir()` resolved it relative to the module, which inside a wheel is
+never a real path.
+
+Four silent skips then compound: `init_workspace` copied only `if os.path.isdir(src)`,
+the backend symlink loop only iterated `if os.path.isdir(fw)` (the dir *does*
+exist — `init` created it — it is simply empty), and `prompts.py` tells the agent
+to "Load the `wikiskill-maintainer` skill" whether or not it exists. Nothing
+crashed and nothing was logged: a degraded run whose scores stayed well-formed,
+i.e. the exact failure shape as `trace-harness-launch-failure`, one layer up.
+
+**Why CI was green:** every job installs `pip install -e .`, so
+`harness.__file__` stays in the checkout and the repo-relative path resolves.
+
+Nothing in `docs/RUNS.md` is affected: every live run above was produced from a
+source checkout (editable install), where the skills resolve normally.
+
+Fixes (0.1.5):
+
+1. `setup.py`'s `build_py` hook copies the repo-root `skills/` into the wheel as
+   `wikiskill/framework_skills/` (+ `MANIFEST.in` `graft skills` so a wheel built
+   from the sdist carries them too); `repo_skills_dir()` prefers the packaged
+   copy and falls back to `<repo>/skills` for editable installs. The repo-root
+   layout stays authoritative — the tap (`hermes skills install <repo>/skills/<name>`)
+   requires it, so a plain move into the package would have broken the tap.
+2. `harness.ensure_framework_skills()` raises `FileNotFoundError` when a skill is
+   missing from the install instead of skipping, and repairs a `skills/framework/`
+   directory left empty by a broken install. It runs at the *point of use*
+   (`maintain_step` / `propose_step`), so workspaces created by 0.1.2–0.1.4 heal
+   themselves on the next iteration.
+3. `agents.run_agent` prints a stderr warning if a `include_framework=True` turn
+   is somehow reached with nothing staged — the "make the skip loud" tripwire.
+4. CI gained a `wheel` job (build → install into a clean venv → `init` → assert
+   `skills/framework/*/SKILL.md`); the release workflow now runs the same
+   assertion **before** publishing to PyPI; `tests/test_packaging.py` covers the
+   wheel contents, staging, repair, loud failure, and the symlinks into the
+   agent's isolated profile.
+
+Adjacent fix in the same class: `cli.DEFAULT_WS_ROOT` was `<package parent>/workspaces`,
+so `wikiskill init demo` on an installed wheel created the workspace inside
+`site-packages` and ignored the directory it was run from. Now `./workspaces/<domain>`
+relative to the cwd — identical behaviour for source checkouts run from the repo
+root, and `resolve_ws()` keeps a read-only fallback to the old location (with a
+one-line stderr notice) so workspaces a previous version created are still found
+when the CLI is run from a subdirectory instead of failing as `no workspace at …`.
+
+Hardening added in adversarial review of the above, before pushing:
+
+- the repair is keyed on `SKILL.md`, not on the directory being non-empty — a
+  half-staged dir containing only junk counted as "staged" and let an unskilled
+  maintainer turn run (the #29 failure shape, one layer in);
+- a `skills/framework/<name>` that is a file or a symlink is removed with
+  `os.remove` rather than `shutil.rmtree` (which refuses to unlink a symlink —
+  the first cut of the repair crashed mid-`evolve`, after the baseline gate);
+- the install is validated at the *top* of `init_workspace`, so a broken install
+  no longer leaves a half-built workspace that the next `init` rejects with
+  "workspace already exists" (it is re-initializable now: the guard keys on a
+  finished `tasks.json`), and the CLI prints one actionable line instead of a
+  20-line traceback;
+- `build_py` clears `build/lib/**/framework_skills` before copying, so a renamed
+  or removed framework skill cannot keep shipping from a stale build tree;
+- the packaging test builds from a throwaway copy (no residue in the repo),
+  asserts the **sdist** too (MANIFEST.in was otherwise only exercised at tag
+  time), asserts the hook never materializes `wikiskill/framework_skills/` in the
+  source tree, and fails instead of skipping when `build`/`setuptools` are absent
+  in CI — a silent skip is precisely how #29 shipped.

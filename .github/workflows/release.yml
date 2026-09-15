@@ -26,6 +26,12 @@ jobs:
           python -m venv /tmp/wheel-check
           /tmp/wheel-check/bin/pip install -q dist/*.whl
           /tmp/wheel-check/bin/wikiskill --help >/dev/null && echo "WHEEL SMOKE OK"
+          # issue #29: a wheel with no framework skills silently degrades every
+          # evolution run — never publish one again
+          cd /tmp && /tmp/wheel-check/bin/wikiskill init smoke
+          test -s /tmp/workspaces/smoke/skills/framework/wikiskill-maintainer/SKILL.md
+          test -s /tmp/workspaces/smoke/skills/framework/wikiskill-proposer/SKILL.md
+          echo "WHEEL FRAMEWORK SKILLS OK"
       - name: Publish release with artifacts
         uses: softprops/action-gh-release@v2
         with:
