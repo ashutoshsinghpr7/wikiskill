@@ -8,19 +8,50 @@ import sys
 
 from . import agents, backends, bench, compare, gating, harness, tasks as tasks_mod, traces, transfer
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_WS_ROOT = os.path.join(REPO_ROOT, "workspaces")
+
+def default_ws_root() -> str:
+    """Domains live in `./workspaces/` next to wherever the CLI is run.
+
+    Before 0.1.5 this was resolved relative to the *package directory*, so an
+    installed wheel created workspaces inside `site-packages` and
+    `wikiskill init demo` silently ignored the directory you ran it from
+    (issue #29). Computed per call, not at import time, so it follows the cwd.
+    """
+    return os.path.join(os.getcwd(), "workspaces")
+
+
+def legacy_ws_root() -> str:
+    """The pre-0.1.5 default: `<parent of the package>/workspaces`.
+
+    Read-only fallback in `resolve_ws` so a source checkout keeps finding
+    workspaces it already has when the CLI is run from a subdirectory; we never
+    create anything here.
+    """
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(here, "workspaces")
 
 
 def resolve_ws(domain: str, ws: str | None) -> str:
     if ws:
         return os.path.abspath(ws)
-    return os.path.join(DEFAULT_WS_ROOT, domain)
+    cwd_ws = os.path.join(default_ws_root(), domain)
+    if not os.path.isdir(cwd_ws):
+        legacy = os.path.join(legacy_ws_root(), domain)
+        if os.path.isdir(legacy):
+            print(f"[wikiskill] using the existing workspace at {legacy} "
+                  f"(move it under ./workspaces/ or pass --ws to silence this)",
+                  file=sys.stderr)
+            return legacy
+    return cwd_ws
 
 
 def cmd_init(args) -> int:
     ws = resolve_ws(args.domain, args.ws)
-    if os.path.exists(ws) and os.listdir(ws):
+    # Refuse only a workspace that is actually finished: a directory left behind
+    # by an init that failed (e.g. a broken install, issue #29) is incomplete —
+    # no tasks.json — and must be re-initializable rather than reported as
+    # "already exists".
+    if os.path.exists(tasks_mod.tasks_path(ws)):
         print(f"workspace already exists: {ws}")
         return 1
     if args.backend:
@@ -103,7 +134,7 @@ def cmd_gate(args) -> int:
 
 
 def cmd_compare(args) -> int:
-    root = DEFAULT_WS_ROOT
+    root = default_ws_root()
     ws_a = args.ws_a if os.path.isdir(args.ws_a) else os.path.join(root, args.ws_a)
     ws_b = args.ws_b if os.path.isdir(args.ws_b) else os.path.join(root, args.ws_b)
     for p, name in ((ws_a, "ws_a"), (ws_b, "ws_b")):
@@ -118,7 +149,7 @@ def cmd_compare(args) -> int:
 
 
 def cmd_transfer(args) -> int:
-    root = DEFAULT_WS_ROOT
+    root = default_ws_root()
     src = args.src if os.path.isdir(args.src) else os.path.join(root, args.src)
     dst = args.dst if os.path.isdir(args.dst) else os.path.join(root, args.dst)
     for p, name in ((src, "src"), (dst, "dst")):
@@ -188,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
 
     def add_ws(sp):
         sp.add_argument("domain")
-        sp.add_argument("--ws", help="explicit workspace path (default: <repo>/workspaces/<domain>)")
+        sp.add_argument("--ws", help="explicit workspace path (default: ./workspaces/<domain>)")
 
     sp = sub.add_parser("init", help="create a workspace with the demo bench")
     add_ws(sp); sp.add_argument("--seed", type=int, default=42)
@@ -266,7 +297,13 @@ def main(argv: list[str] | None = None) -> int:
     add_ws(sp); sp.set_defaults(fn=cmd_reset)
 
     args = p.parse_args(argv)
-    return args.fn(args)
+    try:
+        return args.fn(args)
+    except FileNotFoundError as e:
+        # e.g. an install that ships no framework skills (issue #29) — one
+        # actionable line, not a 20-line traceback
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ Contract notes
 
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
@@ -50,3 +52,34 @@ class AgentBackend(Protocol):
             dry_run: bool = False) -> RunResult: ...
     def export_session(self, ws: str, run_dir: str,
                        session_id: str | None = None) -> str | None: ...
+
+
+FRAMEWORK_SKILLS: tuple[str, ...] = ("wikiskill-maintainer", "wikiskill-proposer")
+
+
+def framework_skill_names(ws: str) -> list[str]:
+    """Framework skills actually staged (with a SKILL.md) in the workspace."""
+    fw = os.path.join(ws, "skills", "framework")
+    return [n for n in FRAMEWORK_SKILLS
+            if os.path.isfile(os.path.join(fw, n, "SKILL.md"))]
+
+
+def warn_if_missing_framework_skills(ws: str) -> list[str]:
+    """Complain loudly when a framework turn is about to run under-skilled.
+
+    The maintainer/proposer prompts tell the agent to load the framework skill,
+    so a missing (or half-staged) `skills/framework/` silently degrades the run:
+    the scores stay well-formed and nothing is logged (issue #29).
+    `harness.ensure_framework_skills` is the fix; this is the last-resort tripwire
+    for any path that reaches a backend without going through it.
+    """
+    missing = [n for n in FRAMEWORK_SKILLS if n not in framework_skill_names(ws)]
+    if missing:
+        print(
+            f"[wikiskill] WARNING: include_framework=True but {missing} are not "
+            f"staged in {os.path.join(ws, 'skills', 'framework')!r} — this turn is "
+            f"running with NO framework skill loaded and its output is not "
+            f"trustworthy. Reinstall wikiskill>=0.1.5 or re-run `wikiskill init`.",
+            file=sys.stderr,
+        )
+    return missing

@@ -20,31 +20,96 @@ import random
 import shutil
 
 from . import agents, gating, prompts, tasks as tasks_mod, traces, wiki
+from .backends.base import FRAMEWORK_SKILLS
 from .backends.hermes import MAINTAINER_TOOLSETS, PROPOSER_TOOLSETS
 
-FRAMEWORK_SKILLS = ("wikiskill-maintainer", "wikiskill-proposer")
 
+def repo_skills_dir(pkg_dir: str | None = None) -> str:
+    """Where the framework skills live for this install.
 
-def repo_skills_dir() -> str:
-    """The repo's skills/ dir (framework skills shipped with the package)."""
-    here = os.path.dirname(os.path.abspath(__file__))
+    Preference order:
+
+    1. ``<package>/framework_skills/`` — the copy shipped inside the wheel
+       (setup.py's ``build_py`` hook copies the repo-root ``skills/`` there).
+    2. ``<parent of the package>/skills/`` — a source checkout / editable
+       install, where the repo root holds the authoritative copy. That layout is
+       also required by the Hermes skills tap (``hermes skills install
+       <repo>/skills/<name>``), so it cannot simply move into the package.
+
+    Source checkouts must never contain ``wikiskill/framework_skills/``: it is
+    build output (it only lands in ``build/lib``), and a manual copy there would
+    shadow the repo-root skills. It would show up as untracked in ``git status``.
+
+    ``pkg_dir`` is injectable so tests can pin the preference order.
+    """
+    here = pkg_dir or os.path.dirname(os.path.abspath(__file__))
+    packaged = os.path.join(here, "framework_skills")
+    if os.path.isdir(packaged):
+        return packaged
     return os.path.join(os.path.dirname(here), "skills")
+
+
+def require_framework_skills(src_root: str | None = None) -> list[tuple[str, str]]:
+    """Validate every framework skill in the install, or raise loudly.
+
+    Raising *is* the fix for issue #29: the maintainer/proposer prompts instruct
+    the agent to "Load the `wikiskill-maintainer` skill and follow it exactly",
+    so a missing copy turns the evolution loop into well-formed but untrustworthy
+    scores with nothing logged. Returns ``[(name, src), ...]``.
+    """
+    root = src_root or repo_skills_dir()
+    found: list[tuple[str, str]] = []
+    for name in FRAMEWORK_SKILLS:
+        src = os.path.join(root, name)
+        if not os.path.isfile(os.path.join(src, "SKILL.md")):
+            raise FileNotFoundError(
+                f"framework skill {name!r} not found at {src!r} — this wikiskill "
+                f"install does not ship its framework skills (wheels before 0.1.5 "
+                f"shipped none), so the maintainer/proposer turns would run with "
+                f"no skill loaded and the run's scores would not be trustworthy. "
+                f"Reinstall with `pip install -U wikiskill>=0.1.5`, or use an "
+                f"editable install from a source checkout (`pip install -e .`)."
+            )
+        found.append((name, src))
+    return found
+
+
+def ensure_framework_skills(ws: str) -> list[str]:
+    """Stage the maintainer + proposer skills in the workspace (idempotent).
+
+    Validates the install *first*, so a broken install fails before anything is
+    written. Then repairs a staged copy that is missing, empty, half-staged, or
+    of the wrong type (a leftover file or symlink) — including a
+    `skills/framework/` left empty by a 0.1.2–0.1.4 install. A staged copy that
+    already has a `SKILL.md` is left untouched, so local edits survive.
+    """
+    staged = []
+    for name, src in require_framework_skills():
+        dst = os.path.join(ws, "skills", "framework", name)
+        if os.path.islink(dst) or os.path.isfile(dst):
+            os.remove(dst)  # wrong type — and rmtree refuses to unlink a symlink
+        elif os.path.isdir(dst) and not os.path.isfile(os.path.join(dst, "SKILL.md")):
+            shutil.rmtree(dst)
+        if not os.path.isdir(dst):
+            shutil.copytree(src, dst)
+        staged.append(dst)
+    return staged
 
 
 def init_workspace(ws: str) -> None:
     """Create a fresh evolution workspace (idempotent)."""
+    # Validate the install BEFORE creating anything: a broken install must not
+    # leave a half-built workspace behind (issue #29 — the traceback used to
+    # land after `.hermes-home/`, `wiki/`, `bench/` … existed, so the next
+    # `init` then refused with "workspace already exists").
+    require_framework_skills()
     for d in ("raw/traces", "wiki/patterns", "skills/active", "skills/framework",
               "runs/proposals", "bench"):
         os.makedirs(os.path.join(ws, d), exist_ok=True)
     gating.ensure_active_repo(ws)
     wiki.ensure(ws)
     agents.bootstrap_profile(ws)
-    fw = os.path.join(ws, "skills", "framework")
-    for name in FRAMEWORK_SKILLS:
-        src = os.path.join(repo_skills_dir(), name)
-        dst = os.path.join(fw, name)
-        if os.path.isdir(src) and not os.path.isdir(dst):
-            shutil.copytree(src, dst)
+    ensure_framework_skills(ws)
 
 
 def sample_traces(ws: str, it: int, train_results: list[dict],
@@ -65,6 +130,11 @@ def sample_traces(ws: str, it: int, train_results: list[dict],
 
 def maintain_step(ws: str, k: int, sampled: list[dict], runner=agents.run_agent,
                   dry_run: bool = False) -> dict:
+    # Guarantee at the point of use (issue #29): this turn tells the agent to
+    # load the framework skill, so a missing staged copy must fail loudly here
+    # rather than run degraded — and a framework dir emptied by an earlier
+    # broken install is repaired first.
+    ensure_framework_skills(ws)
     prompt = prompts.maintainer_prompt(ws, k, sampled)
     return runner(ws, prompt, tag=f"maintain-{k:02d}",
                   toolsets=MAINTAINER_TOOLSETS, include_framework=True,
@@ -73,6 +143,7 @@ def maintain_step(ws: str, k: int, sampled: list[dict], runner=agents.run_agent,
 
 def propose_step(ws: str, k: int, train_results: list[dict], runner=agents.run_agent,
                  dry_run: bool = False) -> tuple[dict | None, dict]:
+    ensure_framework_skills(ws)  # same point-of-use guarantee as maintain_step
     prompt = prompts.proposer_prompt(ws, k, train_results)
     res = runner(ws, prompt, tag=f"propose-{k:02d}",
                  toolsets=PROPOSER_TOOLSETS, include_framework=True,

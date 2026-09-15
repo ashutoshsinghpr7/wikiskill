@@ -12,6 +12,7 @@ for tests that assert on hermes-specific behavior.
 from __future__ import annotations
 
 from .backends import resolve
+from .backends.base import warn_if_missing_framework_skills
 
 
 def bootstrap_profile(ws: str, real: str | None = None) -> str:
@@ -36,6 +37,9 @@ def run_agent(ws: str, prompt: str, *, tag: str, toolsets: str | None = None,
     """Run one agent turn on the workspace's backend. Returns the legacy dict
     shape consumed by gating.run_task (cmd/exit_code/duration_s/stdout_path/
     session_file + dry-run extras)."""
+    if include_framework:
+        # issue #29: never let a framework turn run silently unskilled
+        warn_if_missing_framework_skills(ws)
     res = resolve(ws).run(ws, prompt, tag=tag, toolsets=toolsets, model=model,
                           max_turns=max_turns, run_budget=run_budget,
                           workdir=workdir, include_framework=include_framework,

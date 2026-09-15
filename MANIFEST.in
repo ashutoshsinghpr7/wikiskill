@@ -1,0 +1,5 @@
+# The framework skills live outside the package (repo-root `skills/`, required by
+# the Hermes skills tap layout) and are copied into the wheel by setup.py's
+# build_py hook. The sdist must carry them so a wheel built FROM the sdist still
+# ships them — see issue #29.
+graft skills

@@ -72,6 +72,19 @@ wikiskill evolve --iters 3    # full Algorithm 1 loop with your default model
 
 Or from source: `pip install -e .` (installs the same `wikiskill` CLI).
 
+Workspaces are created **relative to your current directory** (`./workspaces/<domain>/`)
+— and because `skills/` lives outside the package, the wheel carries a copy of
+the framework skills that `init` stages into each workspace. If you installed
+from PyPI before 0.1.5, upgrade and re-`init` any existing workspace: those
+wheels shipped no `skills/`, so the maintainer and proposer turns ran with no
+skill loaded (silently — the scores still looked well-formed). See
+[issue #29](https://github.com/ashutoshsinghpr7/wikiskill/issues/29).
+
+Looking a workspace up (rather than creating one) also prefers `./workspaces/`
+and then falls back to the old `<repo>/workspaces/` location with a one-line
+notice, so existing workspaces keep working from any directory in a checkout —
+or pass `--ws <path>` to be explicit.
+
 That's it. Each evolution workspace lives at `workspaces/<domain>/`:
 
 ```

@@ -25,6 +25,18 @@ needle:
 - No secrets, no PII: the repo is public. `workspaces/` is gitignored for a
   reason — never commit traces, `.hermes-home/`, or `runs/`.
 - Every CLI change needs a test or an updated dry-run snapshot.
+- `python3 -m pyflakes wikiskill/ tests/ setup.py` must be clean (CI lints
+  `setup.py` too — it holds real build logic now).
+- **`skills/` is load-bearing twice.** The framework skills (`wikiskill-maintainer`,
+  `wikiskill-proposer`) live at the repo root because the repo doubles as a Hermes
+  skills tap, whose discovery requires `skills/<name>/SKILL.md` — and they must
+  also reach installed wheels, which setuptools does not ship from outside the
+  package. `setup.py`'s `build_py` hook copies them into the wheel as
+  `wikiskill/framework_skills/`; `wikiskill.harness.repo_skills_dir()` prefers
+  that copy and falls back to `<repo>/skills`. If you touch packaging, run the
+  `wheel` CI job's steps locally (`python -m build --wheel`, install in a clean
+  venv, `wikiskill init demo`, check `skills/framework/*/SKILL.md`) — issue #29
+  was invisible for exactly three releases because `pip install -e .` hides it.
 
 ## Process
 
